@@ -9,7 +9,7 @@ import {
   ArrowLeft, Plus, Edit2, Trash2, Map, Navigation,
   Fuel, Clock, DollarSign, CheckCircle2, Circle,
   ChevronRight, ExternalLink, Car, Plane, Train,
-  Camera, Calendar, Apple, Globe, Route, X, Mail,
+  Camera, Calendar, Globe, Route, X, Mail,
   Eye, MapPin, Cloud, Receipt, Loader2, Check
 } from 'lucide-react'
 import Navbar from '@/components/Navbar'
@@ -17,16 +17,15 @@ import MapView from '@/components/MapView'
 import SegmentEditor from '@/components/SegmentEditor'
 import StopPanel from '@/components/StopPanel'
 import ActivityPanel from '@/components/ActivityPanel'
-import PhotoPanel from '@/components/PhotoPanel'
 import WeatherCard from '@/components/WeatherCard'
 import BudgetPanel from '@/components/BudgetPanel'
 import ImmichPanel from '@/components/ImmichPanel'
 import { getLodgingForDate } from '@/components/LodgingPanel'
 import { Day, Trip, Segment, Activity, Photo, Lodging, TRANSPORT_ICONS, TRANSPORT_COLORS, Stop } from '@/lib/types'
-import { getGoogleMapsUrl, getAppleMapsUrl, getWazeUrl } from '@/lib/api'
+import { getGoogleMapsUrl, getWazeUrl } from '@/lib/api'
 import clsx from 'clsx'
 
-type PanelTab = 'stops' | 'activities' | 'photos' | 'immich' | 'weather' | 'budget' | 'notes'
+type PanelTab = 'photos' | 'stops' | 'activities' | 'weather' | 'budget' | 'notes'
 
 export default function DayPage() {
   const params = useParams()
@@ -37,7 +36,7 @@ export default function DayPage() {
   const [trip, setTrip] = useState<Trip | null>(null)
   const [day, setDay] = useState<Day | null>(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<PanelTab>('stops')
+  const [tab, setTab] = useState<PanelTab>('photos')
   const [addingSegment, setAddingSegment] = useState(false)
   const [editingSegment, setEditingSegment] = useState<Segment | null>(null)
   const [expandedSegId, setExpandedSegId] = useState<string | null>(null)
@@ -172,11 +171,14 @@ export default function DayPage() {
   const prevDay = trip.days?.find(d => d.dayNumber === day.dayNumber - 1)
   const prevDayCity = prevDay?.endCity || prevDay?.startCity
 
+  const isCompleted = day.visited
+
   const TABS: { key: PanelTab; label: string; icon: string }[] = [
-    { key: 'stops', label: 'Stops', icon: '🛑' },
-    { key: 'activities', label: 'Things', icon: '🎡' },
-    { key: 'photos', label: 'Photos', icon: '📷' },
-    { key: 'immich', label: 'Immich', icon: '🖼️' },
+    { key: 'photos', label: 'Photos', icon: '🖼️' },
+    ...(!isCompleted ? [
+      { key: 'stops' as PanelTab, label: 'Stops', icon: '🛑' },
+      { key: 'activities' as PanelTab, label: 'Things', icon: '🎡' },
+    ] : []),
     { key: 'weather', label: 'Weather', icon: '🌤️' },
     { key: 'budget', label: 'Budget', icon: '💵' },
     { key: 'notes', label: 'Notes', icon: '📝' },
@@ -247,15 +249,16 @@ export default function DayPage() {
                   target="_blank" rel="noopener noreferrer" className="tp-btn-ghost flex-1 justify-center text-sm">
                   <Globe className="w-4 h-4 text-blue-400" /> Google Maps <ExternalLink className="w-3 h-3" />
                 </a>
-                <a href={getAppleMapsUrl(firstSeg.from, lastSeg.to)}
-                  target="_blank" rel="noopener noreferrer" className="tp-btn-ghost flex-1 justify-center text-sm">
-                  <Apple className="w-4 h-4" /> Apple Maps <ExternalLink className="w-3 h-3" />
-                </a>
                 <a href={getWazeUrl(lastSeg.to)}
-                  target="_blank" rel="noopener noreferrer" className="tp-btn-ghost justify-center text-sm px-3">
-                  <Navigation className="w-4 h-4 text-blue-400" />
+                  target="_blank" rel="noopener noreferrer" className="tp-btn-ghost flex-1 justify-center text-sm">
+                  <Navigation className="w-4 h-4 text-blue-400" /> Waze <ExternalLink className="w-3 h-3" />
                 </a>
               </div>
+            )}
+
+            {/* Inline weather strip */}
+            {weatherLat && weatherLng && (
+              <WeatherStrip dayDate={day.date} lat={weatherLat} lng={weatherLng} locationName={weatherLocation} />
             )}
 
             {/* Day stats */}
@@ -349,6 +352,10 @@ export default function DayPage() {
               ))}
             </div>
 
+            {tab === 'photos' && (
+              <ImmichPanel tripId={tripId} dayDate={day.date} />
+            )}
+
             {tab === 'stops' && (
               <div className="space-y-3">
                 {(day.segments?.length ?? 0) === 0 ? (
@@ -373,18 +380,6 @@ export default function DayPage() {
                 onUpdate={act => handleActivity(act, 'update')}
                 onDelete={id => handleActivity({ id } as Activity, 'delete')}
               />
-            )}
-
-            {tab === 'photos' && (
-              <PhotoPanel
-                photos={day.photos || []}
-                onAdd={photo => handlePhoto(photo, 'add')}
-                onDelete={id => handlePhoto(id, 'delete')}
-              />
-            )}
-
-            {tab === 'immich' && (
-              <ImmichPanel tripId={tripId} dayDate={day.date} />
             )}
 
             {tab === 'weather' && (
@@ -535,6 +530,52 @@ function DayNotes({ notes, onSave }: { notes: string; onSave: (n: string) => voi
       >
         {saved ? <><Check className="w-4 h-4" /> Saved</> : 'Save Notes'}
       </button>
+    </div>
+  )
+}
+
+// ── Inline weather strip ────────────────────────────────────────────────────
+function WeatherStrip({ dayDate, lat, lng, locationName }: {
+  dayDate: string; lat: number; lng: number; locationName?: string
+}) {
+  const [weather, setWeather] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch(`/api/weather?lat=${lat}&lng=${lng}&start=${dayDate}&end=${dayDate}`)
+      .then(r => r.json())
+      .then(d => setWeather(d[0] || null))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [lat, lng, dayDate])
+
+  if (loading) return (
+    <div className="tp-card px-4 py-3 flex items-center gap-2 text-white/30 text-sm animate-pulse">
+      🌡️ Loading weather…
+    </div>
+  )
+  if (!weather) return null
+
+  const hot = weather.tempMax >= 90
+  const cold = weather.tempMax <= 40
+  const rainy = weather.precipitation > 0.2
+
+  return (
+    <div className="tp-card px-4 py-3 flex items-center gap-4">
+      <span className="text-3xl">{weather.icon}</span>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-white font-semibold">{weather.tempMax}°F</span>
+          <span className="text-white/40 text-sm">/ {weather.tempMin}°F</span>
+          <span className="text-white/50 text-sm">{weather.description}</span>
+          {locationName && <span className="text-white/30 text-xs truncate">· {locationName}</span>}
+        </div>
+        <div className="flex gap-2 mt-0.5">
+          {rainy && <span className="text-xs text-blue-400">☔ {weather.precipitation}" rain</span>}
+          {hot && <span className="text-xs text-orange-400">🌡️ Hot day</span>}
+          {cold && <span className="text-xs text-blue-300">🧥 Cold</span>}
+        </div>
+      </div>
     </div>
   )
 }

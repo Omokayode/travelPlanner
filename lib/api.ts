@@ -179,27 +179,23 @@ export function getGoogleMapsUrl(
   stops: GeoLocation[] = [],
   segments: { from: GeoLocation; to: GeoLocation; stops?: { location: GeoLocation }[] }[] = []
 ): string {
-  // Build ordered waypoints from all segments
   const waypoints: string[] = []
 
   if (segments.length > 1) {
-    // Multi-segment day: add each segment's destination (except the last) as waypoints
-    // plus any stops along the way
     for (let i = 0; i < segments.length; i++) {
       const seg = segments[i]
-      // Add stops within this segment
       for (const stop of (seg.stops || [])) {
-        waypoints.push(`${stop.location.coords.lat},${stop.location.coords.lng}`)
+        if (stop.location?.coords?.lat) {
+          waypoints.push(`${stop.location.coords.lat},${stop.location.coords.lng}`)
+        }
       }
-      // Add segment destination as waypoint (except the final destination)
-      if (i < segments.length - 1) {
+      if (i < segments.length - 1 && seg.to?.coords?.lat) {
         waypoints.push(`${seg.to.coords.lat},${seg.to.coords.lng}`)
       }
     }
   } else {
-    // Single segment: just use the stops passed in
     for (const s of stops) {
-      waypoints.push(`${s.coords.lat},${s.coords.lng}`)
+      if (s?.coords?.lat) waypoints.push(`${s.coords.lat},${s.coords.lng}`)
     }
   }
 
@@ -207,19 +203,18 @@ export function getGoogleMapsUrl(
     ? `&waypoints=${encodeURIComponent(waypoints.join('|'))}`
     : ''
 
-  // Use coordinates for origin/destination for accuracy
-  const origin = `${from.coords.lat},${from.coords.lng}`
-  const destination = `${to.coords.lat},${to.coords.lng}`
+  // Always use coordinates — never place names — to avoid Google Maps misinterpreting them
+  const origin = from?.coords?.lat ? `${from.coords.lat},${from.coords.lng}` : encodeURIComponent(from?.name || '')
+  const destination = to?.coords?.lat ? `${to.coords.lat},${to.coords.lng}` : encodeURIComponent(to?.name || '')
 
-  return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}${waypointsParam}&travelmode=driving`
-}
-
-export function getAppleMapsUrl(from: GeoLocation, to: GeoLocation): string {
-  return `https://maps.apple.com/?saddr=${encodeURIComponent(from.name)}&daddr=${encodeURIComponent(to.name)}&dirflg=d`
+  return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}${waypointsParam}&travelmode=driving`
 }
 
 export function getWazeUrl(to: GeoLocation): string {
-  return `https://waze.com/ul?ll=${to.coords.lat},${to.coords.lng}&navigate=yes`
+  if (to?.coords?.lat) {
+    return `https://waze.com/ul?ll=${to.coords.lat},${to.coords.lng}&navigate=yes`
+  }
+  return `https://waze.com/ul?q=${encodeURIComponent(to?.name || '')}&navigate=yes`
 }
 
 // ─── City Suggestions for Activities ─────────────────────────────────────────

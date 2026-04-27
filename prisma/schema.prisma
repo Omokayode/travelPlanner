@@ -32,6 +32,18 @@ model Trip {
   expenses     Expense[]
 }
 
+model AppSettings {
+  id            String  @id @default("singleton")
+  immichUrl     String?
+  immichApiKey  String?
+  immichAlbumId String?
+  gasPriceRegular   Float?
+  gasPricePremium   Float?
+  gasPriceDiesel    Float?
+  savedVehicles Json?
+  updatedAt     DateTime @updatedAt
+}
+
 model Day {
   id        String @id
   tripId    String

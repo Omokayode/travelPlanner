@@ -1,7 +1,7 @@
 // app/trips/new/page.tsx
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { v4 as uuidv4 } from 'uuid'
 import { addDays, format, differenceInDays } from 'date-fns'
@@ -206,6 +206,14 @@ export default function NewTripPage() {
               <p className="text-white/40">Needed for fuel cost and range calculations.</p>
             </div>
 
+            <SavedVehiclePicker onSelect={(v) => {
+              setVehicleMake(v.make); setVehicleModel(v.model || '')
+              setVehicleYear(v.year ? String(v.year) : '')
+              setMpg(String(v.fuelEfficiency || 28))
+              setFuelType(v.fuelType as any)
+              setTankSize(String(v.tankSize || 15))
+            }} />
+
             <div className="space-y-3">
               <div className="grid grid-cols-3 gap-3">
                 <input className="tp-input" placeholder="Make (Toyota)" value={vehicleMake} onChange={e => setVehicleMake(e.target.value)} />
@@ -303,6 +311,39 @@ export default function NewTripPage() {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// ── Saved vehicle picker ──────────────────────────────────────────────────────
+function SavedVehiclePicker({ onSelect }: { onSelect: (v: any) => void }) {
+  const [vehicles, setVehicles] = useState<any[]>([])
+
+  useEffect(() => {
+    fetch('/api/settings')
+      .then(r => r.json())
+      .then(s => setVehicles(s.savedVehicles || []))
+      .catch(() => {})
+  }, [])
+
+  if (vehicles.length === 0) return null
+
+  return (
+    <div className="space-y-2">
+      <label className="text-white/50 text-xs">Saved vehicles</label>
+      <div className="grid grid-cols-1 gap-2">
+        {vehicles.map((v, i) => (
+          <button key={i} onClick={() => onSelect(v)}
+            className="flex items-center gap-3 p-3 rounded-xl border border-white/10 bg-white/3 hover:border-emerald-500/40 hover:bg-emerald-500/5 transition-all text-left">
+            <span className="text-lg">🚗</span>
+            <div>
+              <div className="text-sm font-medium text-white">{v.year && `${v.year} `}{v.make} {v.model}</div>
+              <div className="text-xs text-white/40">{v.fuelEfficiency} MPG · {v.fuelType}</div>
+            </div>
+          </button>
+        ))}
+      </div>
+      <div className="text-white/30 text-xs">Or enter manually below</div>
     </div>
   )
 }

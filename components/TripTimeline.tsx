@@ -87,7 +87,7 @@ export default function TripTimeline({ trip }: Props) {
             <g key={stop.dayId}>
               {/* Connector dot */}
               <circle cx={LINE_X} cy={y} r={isFirst || isLast ? 8 : 6}
-                fill={stop.visited ? '#10b981' : isFirst || isLast ? '#10b981' : '#1e293b'}
+                fill={isFirst || isLast ? "#10b981" : "#1e293b"}
                 stroke="#10b981" strokeWidth={isFirst || isLast ? 2 : 1.5} />
 
               {/* Day number */}
