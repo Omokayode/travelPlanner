@@ -1,0 +1,89 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Trip {
+  id            String   @id @default(cuid())
+  name          String
+  description   String?
+  startDate     String
+  endDate       String
+  type          String
+  visitedCities String[]
+  coverPhotoUrl String?
+  totalBudget   Float?
+  tags          String[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  isActive      Boolean  @default(false)
+  vehicle         Json?
+  homeCoords      Json?
+  lodgings        Json?
+  proposedBudget  Json?
+
+  days         Day[]
+  packingItems PackingItem[]
+  expenses     Expense[]
+}
+
+model AppSettings {
+  id            String  @id @default("singleton")
+  immichUrl     String?
+  immichApiKey  String?
+  immichAlbumId String?
+  gasPriceRegular   Float?
+  gasPricePremium   Float?
+  gasPriceDiesel    Float?
+  savedVehicles Json?
+  updatedAt     DateTime @updatedAt
+}
+
+model Day {
+  id        String @id
+  tripId    String
+  date      String
+  dayNumber Int
+  data      Json
+
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId])
+}
+
+model PackingItem {
+  id        String  @id @default(cuid())
+  tripId    String
+  name      String
+  category  String
+  packed    Boolean @default(false)
+  quantity  Int     @default(1)
+  notes     String?
+  essential Boolean @default(false)
+
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId])
+}
+
+model Expense {
+  id            String  @id @default(cuid())
+  tripId        String
+  dayId         String?
+  name          String
+  amount        Float
+  category      String
+  date          String
+  notes         String?
+  receipt       String?
+  paymentMethod String?
+
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId])
+}

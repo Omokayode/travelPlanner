@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tripbyjkblabs
+      POSTGRES_PASSWORD: tripbyjkblabs
+      POSTGRES_DB: tripbyjkblabs
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tripbyjkblabs"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://tripbyjkblabs:tripbyjkblabs@db:5432/tripbyjkblabs
+      NODE_ENV: production
+      # IMMICH_URL: https://photos.yourdomain.com
+      # IMMICH_API_KEY: your_immich_api_key
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
