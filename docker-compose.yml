@@ -2,14 +2,15 @@ services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
+    # Credentials come from .env (git-ignored) — copy .env.example to .env and set POSTGRES_PASSWORD.
     environment:
-      POSTGRES_USER: tripbyjkblabs
-      POSTGRES_PASSWORD: tripbyjkblabs
-      POSTGRES_DB: tripbyjkblabs
+      POSTGRES_USER: ${POSTGRES_USER:-tripbyjkblabs}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (see .env.example)}
+      POSTGRES_DB: ${POSTGRES_DB:-tripbyjkblabs}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U tripbyjkblabs"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tripbyjkblabs}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -20,7 +21,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: postgresql://tripbyjkblabs:tripbyjkblabs@db:5432/tripbyjkblabs
+      DATABASE_URL: postgresql://${POSTGRES_USER:-tripbyjkblabs}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-tripbyjkblabs}
       NODE_ENV: production
       # IMMICH_URL: https://photos.yourdomain.com
       # IMMICH_API_KEY: your_immich_api_key
