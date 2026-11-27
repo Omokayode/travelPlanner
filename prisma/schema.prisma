@@ -68,6 +68,8 @@ model AppSettings {
   savedVehicles   Json?
   /// "City, State" you travel from; not counted as a city visited
   homeCity        String?
+  /// Ollama model for planning (Settings → AI); null = OLLAMA_MODEL / default
+  aiModel         String?
   updatedAt       DateTime @updatedAt
 }
 

@@ -38,6 +38,8 @@ const settingsInput = z
     savedVehicles: z.array(vehicle).max(50).optional(),
     /** "City, State" you travel from — not counted as a city visited */
     homeCity: z.string().trim().max(200).nullable().optional(),
+    /** Ollama model for planning; null = server default */
+    aiModel: z.string().trim().max(120).regex(/^[\w.:/-]*$/).nullable().optional(),
   })
   .strip()
 
@@ -68,6 +70,7 @@ export const PUT = handler(async (req: NextRequest) => {
   if (clearImmichApiKey) data.immichApiKey = null
   if (data.immichUrl === '') data.immichUrl = null
   if (data.homeCity === '') data.homeCity = null
+  if (data.aiModel === '') data.aiModel = null
   const saved = await prisma.$transaction(async (tx) => {
     const before = await tx.appSettings.findUnique({ where: { id: 'singleton' }, select: { homeCity: true } })
     const s = await tx.appSettings.upsert({

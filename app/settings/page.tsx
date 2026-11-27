@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Settings, Car, Fuel, Camera, Plus, Trash2, Check, Loader2, Palette, LogOut, Home } from 'lucide-react'
 import Navbar, { signOut } from '@/components/Navbar'
 import ThemeSwitch from '@/components/ui/ThemeSwitch'
+import AiSettings from '@/components/settings/AiSettings'
 import { Vehicle, FuelType } from '@/lib/types'
 import { DEFAULT_FUEL_PRICES, DEFAULT_MPG } from '@/lib/domain/fuel'
 import { invalidateAppSettings } from '@/lib/useAppSettings'
@@ -21,6 +22,7 @@ interface AppSettings {
   gasPriceDiesel?: number | null
   savedVehicles?: Vehicle[]
   homeCity?: string | null
+  aiModel?: string | null
 }
 
 const FUEL_LABELS: Record<FuelType, string> = {
@@ -158,6 +160,8 @@ export default function SettingsPage() {
           />
           <p className="text-ink-3 text-xs">Where your trips start from. It isn&apos;t counted as a city visited.</p>
         </section>
+
+        <AiSettings onSave={(patch: { aiModel: string | null }) => save(patch)} />
 
         {/* Appearance */}
         <section className="tp-card p-5 space-y-3">
