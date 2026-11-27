@@ -50,7 +50,7 @@ export default function HomePage() {
   }, [trips])
 
   return (
-    <div className="min-h-screen bg-base">
+    <div className="min-h-screen bg-page">
       <Navbar />
 
       {!loading && trips.length === 0 ? (

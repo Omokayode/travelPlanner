@@ -84,6 +84,7 @@ export async function drivingRoute(points: Coordinates[]): Promise<RouteResult |
     const res = await fetch(`${OSM_ENDPOINTS.osrm}/route/v1/driving/${path}?overview=full&geometries=geojson`, {
       headers: { 'User-Agent': USER_AGENT },
       cache: 'no-store',
+      signal: AbortSignal.timeout(10_000), // a save waits for this; fall back rather than hang
     })
     if (!res.ok) throw new Error(`OSRM ${res.status}`)
     const data = (await res.json()) as { routes?: OSRMRoute[] }
@@ -114,30 +115,66 @@ export async function overpass(query: string, ttlMs = 3600_000): Promise<Overpas
 
 export interface Attraction {
   name: string
-  type: 'attraction' | 'food'
+  category: 'attraction' | 'museum' | 'food' | 'coffee' | 'park' | 'viewpoint' | 'historical'
   location: GeoLocation
   website?: string
   notes?: string
+  osmId: string
 }
 
-/** Sights, museums and restaurants around a city's centre. */
-export async function cityAttractions(city: string, limit = 10): Promise<Attraction[]> {
-  const [place] = await searchPlaces(city, 1)
-  if (!place) return []
-  const { lat, lng } = place.coords
+function category(tags: Record<string, string>): Attraction['category'] {
+  if (tags.tourism === 'museum') return 'museum'
+  if (tags.tourism === 'viewpoint') return 'viewpoint'
+  if (tags.historic) return 'historical'
+  if (tags.leisure === 'park') return 'park'
+  if (tags.amenity === 'cafe') return 'coffee'
+  if (tags.amenity === 'restaurant') return 'food'
+  return 'attraction'
+}
+
+/** Sights, museums, parks and places to eat around a point (Overpass, cached for an hour). */
+export async function nearbyPlaces(at: Coordinates, limit = 12, city?: string): Promise<Attraction[]> {
+  const { lat, lng } = at
   const q = `[out:json][timeout:25];
 (
-  node["tourism"="attraction"](around:5000,${lat},${lng});
-  node["tourism"="museum"](around:5000,${lat},${lng});
-  node["amenity"="restaurant"]["cuisine"](around:2000,${lat},${lng});
+  nwr["tourism"~"^(attraction|museum|viewpoint|gallery|zoo|theme_park)$"]["name"](around:6000,${lat},${lng});
+  nwr["historic"~"^(monument|memorial|castle|landmark)$"]["name"]["wikidata"](around:6000,${lat},${lng});
+  nwr["leisure"="park"]["name"]["wikidata"](around:6000,${lat},${lng});
+  node["amenity"~"^(restaurant|cafe)$"]["name"]["cuisine"](around:1500,${lat},${lng});
 );
-out body ${Math.min(Math.max(limit, 1), 50)};`
+out center 80;`
   const elements = await overpass(q)
-  return elements.slice(0, limit).map((el) => ({
-    name: el.tags.name || 'Unknown',
-    type: el.tags.tourism ? 'attraction' : 'food',
-    location: { id: `osm_${el.id}`, name: el.tags.name || 'Unknown', coords: { lat: el.lat, lng: el.lon }, city },
-    website: el.tags.website,
-    notes: el.tags.description || el.tags.cuisine,
-  }))
+  // well-known places (with a Wikidata entry) first, then the rest; no duplicates by name
+  const seen = new Set<string>()
+  return elements
+    .map((el) => ({ el, lat: el.lat ?? el.center?.lat, lon: el.lon ?? el.center?.lon }))
+    .filter((x) => x.lat != null && x.lon != null && x.el.tags?.name)
+    .sort((a, b) => Number(!!b.el.tags.wikidata) - Number(!!a.el.tags.wikidata))
+    .filter((x) => {
+      const k = x.el.tags.name.toLowerCase()
+      if (seen.has(k)) return false
+      seen.add(k)
+      return true
+    })
+    .slice(0, limit)
+    .map(({ el, lat, lon }) => ({
+      name: el.tags.name,
+      category: category(el.tags),
+      osmId: String(el.id),
+      location: {
+        id: `osm_${el.id}`,
+        name: el.tags.name,
+        coords: { lat: lat as number, lng: lon as number },
+        city: el.tags['addr:city'] || city,
+        address: [el.tags['addr:housenumber'], el.tags['addr:street']].filter(Boolean).join(' ') || undefined,
+      },
+      website: el.tags.website,
+      notes: el.tags.description || (el.tags.cuisine ? el.tags.cuisine.replace(/;/g, ', ') : undefined),
+    }))
+}
+
+/** Same, around a city looked up by name. */
+export async function cityAttractions(city: string, limit = 10): Promise<Attraction[]> {
+  const [place] = await searchPlaces(city, 1)
+  return place ? nearbyPlaces(place.coords, limit, place.city || city) : []
 }

@@ -6,7 +6,7 @@ import { MapContainer, Polyline, Popup, TileLayer, ZoomControl, useMap } from 'r
 import L from 'leaflet'
 import 'leaflet.markercluster'
 import 'leaflet.markercluster/dist/MarkerCluster.css'
-import { STOP_TYPE_ICONS, type StopType, type TransportMode } from '@/lib/types'
+import { PLACE_ICONS, type PlaceCategory, type TransportMode } from '@/lib/types'
 
 export interface MapTrip {
   id: string
@@ -77,7 +77,7 @@ function ClusterLayer({ trips, places, layers }: { trips: MapTrip[]; places: Map
         for (const s of t.stops) {
           const m = L.marker([s.lat, s.lng], {
             icon: L.divIcon({
-              html: `<div style="${PIN}width:26px;height:26px;background:rgb(var(--card));border:2px solid ${t.color}">${STOP_TYPE_ICONS[s.type as StopType] || '📍'}</div>`,
+              html: `<div style="${PIN}width:26px;height:26px;background:rgb(var(--card));border:2px solid ${t.color}">${PLACE_ICONS[s.type as PlaceCategory] || '📍'}</div>`,
               className: '',
               iconSize: [26, 26],
               iconAnchor: [13, 13],

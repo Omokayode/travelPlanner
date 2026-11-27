@@ -19,20 +19,18 @@ async function makeTrip(page: Page, opts: { date?: string; legs?: number } = {})
   const id = `e2e${Date.now()}${Math.floor(Math.random() * 1000)}`
   const name = `E2E trip ${Math.random().toString(36).slice(2, 8)}` // must not contain the id
   const date = opts.date || '2026-12-01'
-  const segments = Array.from({ length: opts.legs ?? 2 }, (_, i) => ({
-    id: `${id}s${i}`,
-    mode: 'drive',
-    from: place(i ? 'Milwaukee' : 'Chicago', 41.9 + i, -87.6),
-    to: place(i ? 'Madison' : 'Milwaukee', 43 + i, -87.9),
-    distance: 90 + i,
-    cost: 12.5,
-    bookingRef: 'SECRET-BOOKING',
-    stops: [],
-  }))
+  // Chicago → Milwaukee → Madison, typed-in travel so the test never waits for the router
+  const places = [
+    { id: `${id}p0`, name: 'Chicago', category: 'city', location: place('Chicago', 41.9, -87.6) },
+    { id: `${id}p1`, name: 'Milwaukee', category: 'city', location: place('Milwaukee', 43, -87.9),
+      travel: { mode: 'drive', auto: false, distance: 90, duration: 95, cost: 12.5, bookingRef: 'SECRET-BOOKING' } },
+    { id: `${id}p2`, name: 'Madison', category: 'city', location: place('Madison', 43.07, -89.4),
+      travel: { mode: 'drive', auto: false, distance: 80, duration: 85 } },
+  ].slice(0, (opts.legs ?? 2) + 1)
   const res = await page.request.post('/api/trips', {
     data: {
       id, name, startDate: date, endDate: date, type: 'road_trip',
-      days: [{ id: `${id}d1`, date, dayNumber: 1, segments, activities: [], visited: false, notes: 'SECRET-NOTE' }],
+      days: [{ id: `${id}d1`, date, dayNumber: 1, places, visited: false, notes: 'SECRET-NOTE' }],
     },
   })
   expect(res.ok()).toBeTruthy()
@@ -55,7 +53,8 @@ test('share link: public read-only page without costs or secrets, and it can be 
   expect(res?.status()).toBe(200)
   expect(res?.headers()['x-robots-tag']).toContain('noindex')
   await expect(g.getByRole('heading', { name: trip.name })).toBeVisible()
-  await expect(g.getByText('Chicago → Milwaukee').first()).toBeVisible()
+  await expect(g.getByText('Chicago → Madison').first()).toBeVisible()
+  await expect(g.getByText('Milwaukee').first()).toBeVisible()
   const html = await g.content()
   for (const secret of ['SECRET-BOOKING', 'SECRET-NOTE', '12.5', trip.id]) expect(html).not.toContain(secret)
   // the API stays closed to the guest
@@ -125,16 +124,25 @@ test('quick add puts an expense on today', async ({ page }) => {
   await page.request.delete(`/api/trips/${trip.id}`)
 })
 
-test('legs can be reordered on the day page', async ({ page }) => {
+test('places: reorder, and the trip page shows each day with its places', async ({ page }) => {
   await signIn(page)
   const trip = await makeTrip(page)
-  await page.goto(`/trips/${trip.id}/day/${trip.dayId}`)
-  await page.getByRole('button', { name: 'Move leg down' }).first().click()
+  await page.goto(`/trips/${trip.id}`)
+  await expect(page.getByRole('heading', { name: 'Tuesday, December 1st' })).toBeVisible()
+  await expect(page.locator(`#place-${trip.id}p1`)).toContainText('Milwaukee')
+  await page.getByRole('button', { name: 'Move down', exact: true }).first().click()
   await expect
     .poll(async () => {
       const t = await (await page.request.get(`/api/trips/${trip.id}`)).json()
-      return t.days[0].segments.map((s: { id: string }) => s.id.slice(-2)).join()
-    })
-    .toBe('s1,s0')
+      return t.days[0].places.map((p: { id: string }) => p.id.slice(-2)).join()
+    }, { timeout: 20_000 })
+    .toBe('p1,p0,p2')
+  // the first place never has travel; the server re-routes the rest
+  const t = await (await page.request.get(`/api/trips/${trip.id}`)).json()
+  expect(t.days[0].places[0].travel).toBeUndefined()
+  expect(t.days[0].places[1].travel.mode).toBe('drive')
+  // old day links land on the day
+  await page.goto(`/trips/${trip.id}/day/${trip.dayId}`)
+  await expect(page).toHaveURL(new RegExp(`/trips/${trip.id}#day-1$`))
   await page.request.delete(`/api/trips/${trip.id}`)
 })

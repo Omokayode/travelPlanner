@@ -3,7 +3,7 @@ import { Compass } from 'lucide-react'
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen bg-base flex items-center justify-center px-4">
+    <div className="min-h-screen bg-page flex items-center justify-center px-4">
       <div className="tp-card max-w-sm w-full p-6 text-center space-y-3">
         <Compass className="w-10 h-10 text-accent mx-auto" />
         <h1 className="text-lg font-semibold text-ink">Page not found</h1>

@@ -3,18 +3,29 @@
 export type TransportMode = 'drive' | 'flight' | 'train' | 'bus' | 'ferry' | 'walk'
 export type TripType = 'road_trip' | 'flight' | 'train' | 'mixed'
 export type FuelType = 'regular' | 'premium' | 'diesel' | 'electric'
-export type StopType =
-  | 'rest_area'
-  | 'gas_station'
+/** What kind of place it is (icon, colour, how it counts). */
+export type PlaceCategory =
+  | 'city'
+  | 'lodging'
+  | 'airport'
+  | 'station'
   | 'food'
+  | 'coffee'
   | 'attraction'
-  | 'scenic'
-  | 'bucees'
-  | 'state_line'
+  | 'museum'
   | 'historical'
+  | 'park'
   | 'national_park'
+  | 'scenic'
   | 'viewpoint'
+  | 'shopping'
+  | 'nightlife'
+  | 'gas_station'
+  | 'bucees'
+  | 'rest_area'
+  | 'state_line'
   | 'love_lock'
+  | 'other'
 
 export interface Coordinates {
   lat: number
@@ -31,19 +42,6 @@ export interface GeoLocation {
   country?: string
 }
 
-export interface Stop {
-  id: string
-  location: GeoLocation
-  type: StopType
-  name: string
-  description?: string
-  rating?: number
-  duration?: number // minutes planned
-  notes?: string
-  visited: boolean
-  isAutoSuggested?: boolean
-  osmId?: string
-}
 
 export interface Vehicle {
   make: string
@@ -54,51 +52,52 @@ export interface Vehicle {
   tankSize: number // gallons
 }
 
-export interface Segment {
-  id: string
-  from: GeoLocation
-  to: GeoLocation
+/** How you get to a place from the one before it (same day). */
+export interface Travel {
   mode: TransportMode
+  /** true (default): routed by the app between the two places; false: typed in / looked up (flights) */
+  auto?: boolean
   distance?: number // miles
   duration?: number // minutes
-  cost?: number // total segment cost
+  routeCoords?: [number, number][] // [[lat, lng], ...]
   fuelCost?: number
   fuelGallons?: number
   tollCost?: number
+  /** fuel + tolls for a drive; the ticket for a flight/train… */
+  cost?: number
+  carrier?: string
+  flightNumber?: string
   bookingRef?: string
   confirmationText?: string
-  stops: Stop[]
-  routeCoords?: [number, number][] // [[lat, lng], ...]
-  departureTime?: string
+  departureTime?: string // local "YYYY-MM-DDTHH:mm"
   arrivalTime?: string
-  carrier?: string // airline, train company etc
-  flightNumber?: string
-  notes?: string
 }
 
-export interface Activity {
+/** A place on a day, in visiting order. */
+export interface Place {
   id: string
   name: string
-  type: 'food' | 'attraction' | 'accommodation' | 'shopping' | 'outdoor' | 'nightlife' | 'other'
-  location?: GeoLocation
-  time?: string
-  duration?: number // minutes
-  cost?: number
+  category: PlaceCategory
+  location: GeoLocation
+  /** first place of a day has none */
+  travel?: Travel
+  arriveTime?: string // "HH:mm"
+  stayMinutes?: number
   notes?: string
+  cost?: number // spent at the place (tickets, meal…)
   website?: string
   phone?: string
-  rating?: number
-  visited: boolean
-  isHighlight?: boolean
+  visited?: boolean
+  osmId?: string
 }
+
 
 export interface Day {
   id: string
   date: string
   dayNumber: number
   title?: string
-  segments: Segment[]
-  activities: Activity[]
+  places: Place[]
   notes?: string
   startCity?: string
   endCity?: string
@@ -181,6 +180,8 @@ export interface OverpassElement {
   id: number
   lat: number
   lon: number
+  /** ways/relations queried with "out center" */
+  center?: { lat: number; lon: number }
   tags: Record<string, string>
 }
 
@@ -202,18 +203,52 @@ export const TRANSPORT_COLORS: Record<TransportMode, string> = {
   walk: '#ec4899',
 }
 
-export const STOP_TYPE_ICONS: Record<StopType, string> = {
-  rest_area: '🛑',
-  gas_station: '⛽',
-  food: '🍔',
+export const PLACE_ICONS: Record<PlaceCategory, string> = {
+  city: '🏙️',
+  lodging: '🏨',
+  airport: '✈️',
+  station: '🚉',
+  food: '🍽️',
+  coffee: '☕',
   attraction: '🎡',
-  scenic: '🏔️',
-  bucees: '🦫',
-  state_line: '🗺️',
-  historical: '🏛️',
+  museum: '🏛️',
+  historical: '🏰',
+  park: '🌳',
   national_park: '🌲',
+  scenic: '🏔️',
   viewpoint: '👁️',
+  shopping: '🛍️',
+  nightlife: '🍸',
+  gas_station: '⛽',
+  bucees: '🦫',
+  rest_area: '🛑',
+  state_line: '🗺️',
   love_lock: '🔒',
+  other: '📍',
+}
+
+export const PLACE_LABELS: Record<PlaceCategory, string> = {
+  city: 'City / town',
+  lodging: 'Hotel / stay',
+  airport: 'Airport',
+  station: 'Station',
+  food: 'Food',
+  coffee: 'Coffee',
+  attraction: 'Attraction',
+  museum: 'Museum',
+  historical: 'Historic site',
+  park: 'Park',
+  national_park: 'National park',
+  scenic: 'Scenic spot',
+  viewpoint: 'Viewpoint',
+  shopping: 'Shopping',
+  nightlife: 'Nightlife',
+  gas_station: 'Gas',
+  bucees: "Buc-ee's",
+  rest_area: 'Rest area',
+  state_line: 'State line',
+  love_lock: 'Love lock',
+  other: 'Other',
 }
 
 // Fuel prices: see lib/domain/fuel.ts (DEFAULT_FUEL_PRICES + the Settings page prices).

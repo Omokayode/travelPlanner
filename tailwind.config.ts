@@ -10,7 +10,7 @@ const config: Config = {
     extend: {
       // Theme tokens (app/globals.css sets the values for light and dark). Use these, not hex.
       colors: {
-        'base': 'rgb(var(--base) / <alpha-value>)',
+        'page': 'rgb(var(--base) / <alpha-value>)',
         'surface': 'rgb(var(--surface) / <alpha-value>)',
         'card': 'rgb(var(--card) / <alpha-value>)',
         'card-hover': 'rgb(var(--card-hover) / <alpha-value>)',

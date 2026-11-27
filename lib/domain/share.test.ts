@@ -19,12 +19,13 @@ const trip: Trip = {
   days: [
     {
       id: 'd1', date: '2026-12-01', dayNumber: 1, visited: true, notes: 'NOTE-DAY',
-      activities: [{ id: 'a', name: 'Museum', type: 'attraction', visited: false, cost: 25, phone: 'PHONE-1', notes: 'NOTE-A', website: 'https://x' }],
-      segments: [{
-        id: 's', mode: 'flight', from: loc, to: loc, distance: 100, cost: 321, fuelCost: 11, tollCost: 2,
-        bookingRef: 'PNR-123', confirmationText: 'CONFIRMATION-MAIL', notes: 'NOTE-S', flightNumber: 'AA1',
-        stops: [{ id: 'st', name: 'Stop', type: 'food', visited: true, location: loc, notes: 'NOTE-ST', description: 'DESC' }],
-      }],
+      places: [
+        { id: 'p0', name: 'Austin', category: 'city', location: loc },
+        {
+          id: 'p1', name: 'Museum', category: 'museum', location: loc, cost: 25, phone: 'PHONE-1', notes: 'NOTE-A', website: 'https://x',
+          travel: { mode: 'flight', distance: 100, cost: 321, fuelCost: 11, tollCost: 2, bookingRef: 'PNR-123', confirmationText: 'CONFIRMATION-MAIL', flightNumber: 'AA1999', carrier: 'American' },
+        },
+      ],
     },
   ],
 }
@@ -32,14 +33,14 @@ const trip: Trip = {
 describe('toPublicTrip', () => {
   it('drops everything private', () => {
     const json = JSON.stringify(toPublicTrip(trip))
-    for (const secret of ['trip123', 'd1', '"s"', '"st"', 'SECRET-TOKEN', 'BOOK-REF', 'PNR-123', 'CONFIRMATION-MAIL', 'NOTE-', 'PHONE-1', 'Honda', '1 Main St', 'nominatim_1', '/api/immich', '321', '199', 'DESC']) {
+    for (const secret of ['trip123', 'd1', '"p0"', '"p1"', 'AA1999', 'SECRET-TOKEN', 'BOOK-REF', 'PNR-123', 'CONFIRMATION-MAIL', 'NOTE-', 'PHONE-1', 'Honda', '1 Main St', 'nominatim_1', '/api/immich', '321', '199', 'DESC']) {
       expect(json).not.toContain(secret)
     }
   })
   it('keeps the itinerary', () => {
     const p = toPublicTrip(trip)
-    expect(p.days[0].segments[0]).toMatchObject({ mode: 'flight', distance: 100, from: { name: 'Hotel X', city: 'Austin' } })
-    expect(p.days[0].segments[0].stops[0].name).toBe('Stop')
+    expect(p.days[0].places[1]).toMatchObject({ name: 'Museum', category: 'museum', travel: { mode: 'flight', distance: 100, carrier: 'American' } })
+    expect(p.days[0].places[0].location).toMatchObject({ name: 'Hotel X', city: 'Austin' })
     expect(p.lodgings?.[0]).toMatchObject({ name: 'Hotel X', checkIn: '2026-12-01' })
   })
 })

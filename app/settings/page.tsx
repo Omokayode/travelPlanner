@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Settings, Car, Fuel, Camera, Plus, Trash2, Check, Loader2, Palette, LogOut } from 'lucide-react'
+import { Settings, Car, Fuel, Camera, Plus, Trash2, Check, Loader2, Palette, LogOut, Home } from 'lucide-react'
 import Navbar, { signOut } from '@/components/Navbar'
 import ThemeSwitch from '@/components/ui/ThemeSwitch'
 import { Vehicle, FuelType } from '@/lib/types'
@@ -20,6 +20,7 @@ interface AppSettings {
   gasPricePremium?: number | null
   gasPriceDiesel?: number | null
   savedVehicles?: Vehicle[]
+  homeCity?: string | null
 }
 
 const FUEL_LABELS: Record<FuelType, string> = {
@@ -116,7 +117,7 @@ export default function SettingsPage() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-base">
+    <div className="min-h-screen bg-page">
       <Navbar />
       <div className="flex items-center justify-center h-64">
         <Loader2 className="w-8 h-8 text-accent animate-spin" />
@@ -125,7 +126,7 @@ export default function SettingsPage() {
   )
 
   return (
-    <div className="min-h-screen bg-base">
+    <div className="min-h-screen bg-page">
       <Navbar />
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
         <div className="flex items-center justify-between">
@@ -141,6 +142,22 @@ export default function SettingsPage() {
             </div>
           )}
         </div>
+
+        {/* Home */}
+        <section className="tp-card p-5 space-y-3">
+          <h2 className="text-sm font-semibold text-ink flex items-center gap-2">
+            <Home className="w-4 h-4 text-accent" /> Home city
+          </h2>
+          <input
+            className="tp-input"
+            placeholder="City, State — e.g. Milwaukee, Wisconsin"
+            value={settings.homeCity || ''}
+            onChange={(e) => setSettings((s) => ({ ...s, homeCity: e.target.value }))}
+            onBlur={() => save({ homeCity: settings.homeCity?.trim() || null })}
+            aria-label="Home city"
+          />
+          <p className="text-ink-3 text-xs">Where your trips start from. It isn&apos;t counted as a city visited.</p>
+        </section>
 
         {/* Appearance */}
         <section className="tp-card p-5 space-y-3">
@@ -224,7 +241,7 @@ export default function SettingsPage() {
               </div>
             ))}
           </div>
-          <p className="text-ink/30 text-xs">Used for fuel cost estimates on road trip segments</p>
+          <p className="text-ink/30 text-xs">Used for fuel cost estimates on drives</p>
         </section>
 
         {/* Saved Vehicles */}

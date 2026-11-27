@@ -9,7 +9,8 @@ import { toTrip, tripInclude } from '@/lib/server/store'
 import { toPublicTrip } from '@/lib/domain/share'
 import { daysInclusive } from '@/lib/domain/dates'
 import type { Trip } from '@/lib/types'
-import MapView from '@/components/MapView'
+import PlacesMap from '@/components/itinerary/PlacesMapLazy'
+import { dayColor } from '@/lib/dayColors'
 import TripTimeline from '@/components/TripTimeline'
 
 export const dynamic = 'force-dynamic'
@@ -31,14 +32,13 @@ export default async function SharedTripPage({ params }: { params: { token: stri
   const trip = await load(params.token)
   if (!trip) notFound()
 
-  const segments = trip.days.flatMap((d) => d.segments.map((segment) => ({ segment })))
-  const stops = trip.days.flatMap((d) => d.segments.flatMap((s) => s.stops))
-  const miles = Math.round(segments.reduce((n, { segment }) => n + (segment.distance || 0), 0))
+  const mapDays = trip.days.map((d) => ({ dayNumber: d.dayNumber, color: dayColor(d.dayNumber), places: d.places }))
+  const miles = Math.round(trip.days.flatMap((d) => d.places).reduce((n, p) => n + (p.travel?.distance || 0), 0))
   const days = daysInclusive(trip.startDate, trip.endDate)
 
   return (
-    <div className="min-h-screen bg-base">
-      <header className="border-b border-line bg-base/90 backdrop-blur-md">
+    <div className="min-h-screen bg-page">
+      <header className="border-b border-line bg-page/90 backdrop-blur-md">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg bg-emerald-500 flex items-center justify-center">
             <Compass className="w-4 h-4 text-white" />
@@ -66,9 +66,9 @@ export default async function SharedTripPage({ params }: { params: { token: stri
           </div>
         </div>
 
-        {segments.length > 0 && (
-          <div className="tp-card p-0 overflow-hidden">
-            <MapView segments={segments} stops={stops} height="clamp(260px, 50vh, 460px)" />
+        {mapDays.some((d) => d.places.length) && (
+          <div className="tp-card p-0 overflow-hidden h-[clamp(260px,50vh,460px)]">
+            <PlacesMap days={mapDays} lodgings={trip.lodgings} />
           </div>
         )}
 

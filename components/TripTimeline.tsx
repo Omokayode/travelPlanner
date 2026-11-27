@@ -1,14 +1,15 @@
 'use client'
 
-// The whole trip as one vertical timeline: each day, its legs (with an icon per way of
-// travelling), the stops on each leg, and where you sleep that night. Each day links to its page.
+// The whole trip as one vertical timeline: each day and its places in order, how you get from
+// one to the next, and where you sleep that night. Used on the read-only share page.
 import Link from 'next/link'
 import { format, parseISO } from 'date-fns'
-import { BedDouble, Bus, Car, CheckCircle2, Footprints, MapPin, Plane, Ship, Train } from 'lucide-react'
+import { BedDouble, Bus, Car, CheckCircle2, Footprints, Plane, Ship, Train } from 'lucide-react'
 import clsx from 'clsx'
 import type { Trip, TransportMode } from '@/lib/types'
-import { STOP_TYPE_ICONS } from '@/lib/types'
+import { PLACE_ICONS } from '@/lib/types'
 import { lodgingForDate } from '@/lib/domain/trip'
+import { formatMinutes } from '@/lib/format'
 
 export const MODE_ICON: Record<TransportMode, typeof Car> = {
   drive: Car,
@@ -19,30 +20,20 @@ export const MODE_ICON: Record<TransportMode, typeof Car> = {
   walk: Footprints,
 }
 
-const place = (p: { city?: string; name: string }) => p.city || p.name
-
-function legDetail(miles?: number, minutes?: number) {
-  const parts: string[] = []
-  if (miles) parts.push(`${Math.round(miles).toLocaleString()} mi`)
-  if (minutes) parts.push(minutes >= 60 ? `${Math.floor(minutes / 60)}h ${Math.round(minutes % 60)}m` : `${Math.round(minutes)}m`)
-  return parts.join(' · ')
-}
-
 export default function TripTimeline({ trip, linkBase }: { trip: Trip; linkBase?: string | null }) {
   const days = [...(trip.days || [])].sort((a, b) => a.dayNumber - b.dayNumber)
   if (!days.length) return null
   // linkBase null = no links (shared read-only view)
-  const base = linkBase === undefined ? `/trips/${trip.id}/day/` : linkBase
+  const base = linkBase === undefined ? `/trips/${trip.id}#day-` : linkBase
 
   return (
     <ol className="relative">
       {days.map((day, i) => {
         const lodging = lodgingForDate(trip.lodgings, day.date)
         const last = i === days.length - 1
-        const title =
-          day.title ||
-          [day.startCity, day.endCity].filter(Boolean).join(' → ') ||
-          (day.segments[0] ? `${place(day.segments[0].from)} → ${place(day.segments[day.segments.length - 1].to)}` : 'Free day')
+        const first = day.places[0]
+        const final = day.places[day.places.length - 1]
+        const title = day.title || (first && final && first !== final ? `${first.name} → ${final.name}` : first?.name) || 'Free day'
         const heading = (
           <>
             <div className="text-xs text-ink-3">
@@ -53,9 +44,7 @@ export default function TripTimeline({ trip, linkBase }: { trip: Trip; linkBase?
         )
         return (
           <li key={day.id} className="relative pl-12 pb-6">
-            {/* rail */}
             {!last && <span aria-hidden className="absolute left-[19px] top-10 bottom-0 w-px bg-emerald-500/25" />}
-            {/* node */}
             <span
               aria-hidden
               className={clsx(
@@ -67,47 +56,43 @@ export default function TripTimeline({ trip, linkBase }: { trip: Trip; linkBase?
             </span>
 
             {base ? (
-              <Link href={`${base}${day.id}`} className="block group rounded-lg -mx-2 px-2 py-1 hover:bg-ink/[0.03]">
+              <Link href={`${base}${day.dayNumber}`} className="block group rounded-lg -mx-2 px-2 py-1 hover:bg-ink/[0.03]">
                 {heading}
               </Link>
             ) : (
               <div className="py-1">{heading}</div>
             )}
 
-            {(day.segments.length > 0 || lodging) && (
-              <ul className="mt-2 space-y-2">
-                {day.segments.map((seg) => {
-                  const Icon = MODE_ICON[seg.mode] || Car
-                  const detail = legDetail(seg.distance, seg.duration)
+            {(day.places.length > 0 || lodging) && (
+              <ol className="mt-2 space-y-1.5">
+                {day.places.map((p, n) => {
+                  const Icon = p.travel ? MODE_ICON[p.travel.mode] || Car : null
                   return (
-                    <li key={seg.id} className="text-sm">
-                      <div className="flex items-start gap-2">
-                        <span className="mt-0.5 w-6 h-6 rounded-md bg-ink/5 flex items-center justify-center shrink-0">
-                          <Icon className="w-3.5 h-3.5 text-ink-2" aria-label={seg.mode} />
-                        </span>
-                        <div className="min-w-0">
-                          <div className="text-ink-2">
-                            {place(seg.from)} <span className="text-ink-4">→</span> {place(seg.to)}
-                            {seg.flightNumber && <span className="text-ink-3"> · {seg.flightNumber}</span>}
-                          </div>
-                          {detail && <div className="text-xs text-ink-3">{detail}</div>}
-                          {seg.stops.length > 0 && (
-                            <ul className="mt-1 flex flex-wrap gap-1">
-                              {seg.stops.map((s) => (
-                                <li key={s.id} className="text-xs px-1.5 py-0.5 rounded bg-ink/5 text-ink-2">
-                                  <span aria-hidden>{STOP_TYPE_ICONS[s.type] || '📍'} </span>
-                                  {s.name}
-                                </li>
-                              ))}
-                            </ul>
-                          )}
+                    <li key={p.id} className="text-sm">
+                      {Icon && p.travel && (
+                        <div className="flex items-center gap-1.5 text-xs text-ink-3 pl-1 mb-1">
+                          <Icon className="w-3 h-3" aria-label={p.travel.mode} />
+                          {[p.travel.distance ? `${Math.round(p.travel.distance)} mi` : '', formatMinutes(p.travel.duration), p.travel.carrier]
+                            .filter(Boolean)
+                            .join(' · ')}
                         </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-full bg-ink/5 flex items-center justify-center shrink-0 text-[11px] font-semibold text-ink-2">
+                          {n + 1}
+                        </span>
+                        <span aria-hidden>{PLACE_ICONS[p.category] || '📍'}</span>
+                        <span className="text-ink-2 truncate">
+                          {p.name}
+                          {p.location.city && p.location.city !== p.name && <span className="text-ink-3"> · {p.location.city}</span>}
+                        </span>
+                        {p.arriveTime && <span className="ml-auto text-xs text-ink-3 tabular-nums">{p.arriveTime}</span>}
                       </div>
                     </li>
                   )
                 })}
                 {lodging && (
-                  <li className="flex items-center gap-2 text-sm">
+                  <li className="flex items-center gap-2 text-sm pt-1">
                     <span className="w-6 h-6 rounded-md bg-blue-500/10 flex items-center justify-center shrink-0">
                       <BedDouble className="w-3.5 h-3.5 text-info" aria-label="lodging" />
                     </span>
@@ -117,13 +102,7 @@ export default function TripTimeline({ trip, linkBase }: { trip: Trip; linkBase?
                     </span>
                   </li>
                 )}
-              </ul>
-            )}
-            {day.segments.length === 0 && !lodging && day.notes && (
-              <p className="mt-1 text-xs text-ink-3 line-clamp-2 flex gap-1">
-                <MapPin className="w-3 h-3 mt-0.5 shrink-0" />
-                {day.notes}
-              </p>
+              </ol>
             )}
           </li>
         )

@@ -2,18 +2,17 @@
 
 // On the road: a floating "+" that adds an expense, a note or an "I'm here" stop to today.
 import { useState } from 'react'
-import Link from 'next/link'
 import { v4 as uuidv4 } from 'uuid'
 import { Plus, Receipt, StickyNote, MapPin, Loader2, LocateFixed } from 'lucide-react'
 import clsx from 'clsx'
 import Dialog from '@/components/ui/Dialog'
 import { api, reportError, toast } from '@/lib/client'
-import type { Day, ExpenseCategory, StopType } from '@/lib/types'
-import { EXPENSE_CATEGORY_ICONS, STOP_TYPE_ICONS } from '@/lib/types'
+import type { Day, ExpenseCategory, PlaceCategory } from '@/lib/types'
+import { EXPENSE_CATEGORY_ICONS, PLACE_ICONS } from '@/lib/types'
 
 type Mode = 'expense' | 'note' | 'stop'
 const QUICK_CATEGORIES: ExpenseCategory[] = ['fuel', 'food', 'tolls', 'activities', 'shopping', 'misc']
-const QUICK_STOPS: StopType[] = ['food', 'gas_station', 'attraction', 'scenic', 'rest_area']
+const QUICK_STOPS: PlaceCategory[] = ['food', 'coffee', 'gas_station', 'attraction', 'scenic', 'rest_area']
 
 export default function QuickAdd({ tripId, day, onSaved }: { tripId: string; day: Day; onSaved: () => void }) {
   const [open, setOpen] = useState(false)
@@ -27,11 +26,10 @@ export default function QuickAdd({ tripId, day, onSaved }: { tripId: string; day
   const [note, setNote] = useState('')
   // stop
   const [stopName, setStopName] = useState('')
-  const [stopType, setStopType] = useState<StopType>('attraction')
+  const [stopType, setStopType] = useState<PlaceCategory>('attraction')
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [locating, setLocating] = useState(false)
 
-  const lastLeg = day.segments[day.segments.length - 1]
   const reset = () => {
     setName('')
     setAmount('')
@@ -75,18 +73,20 @@ export default function QuickAdd({ tripId, day, onSaved }: { tripId: string; day
         await api(`/api/trips/${tripId}/days/${day.id}`, 'PUT', { ...day, notes })
         toast.info('Note added to today')
       } else {
-        if (!lastLeg) return
-        if (!coords || !stopName.trim()) return toast.error('Name the stop and share your location')
-        const stop = {
+        if (!coords || !stopName.trim()) return toast.error('Name the place and share your location')
+        const time = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+        const place = {
           id: uuidv4(),
           name: stopName.trim(),
-          type: stopType,
+          category: stopType,
           visited: true,
+          arriveTime: time,
           location: { id: '', name: stopName.trim(), coords },
+          // the app works out the drive from the previous place
+          travel: day.places.length ? { mode: 'drive' as const, auto: true } : undefined,
         }
-        const segments = day.segments.map((s) => (s.id === lastLeg.id ? { ...s, stops: [...s.stops, stop] } : s))
-        await api(`/api/trips/${tripId}/days/${day.id}`, 'PUT', { ...day, segments })
-        toast.info(`Stop “${stop.name}” added`)
+        await api(`/api/trips/${tripId}/days/${day.id}`, 'PUT', { ...day, places: [...day.places, place] })
+        toast.info(`“${place.name}” added to today`)
       }
       close()
       onSaved()
@@ -155,41 +155,30 @@ export default function QuickAdd({ tripId, day, onSaved }: { tripId: string; day
           <textarea className="tp-input resize-none" rows={4} placeholder="What happened?" value={note} onChange={(e) => setNote(e.target.value)} data-autofocus />
         )}
 
-        {mode === 'stop' &&
-          (lastLeg ? (
-            <div className="space-y-3">
-              <div className="flex flex-wrap gap-1.5">
-                {QUICK_STOPS.map((t) => (
-                  <button key={t} type="button" aria-pressed={stopType === t} onClick={() => setStopType(t)}
-                    className={clsx('px-2.5 py-1 rounded-full text-sm border', stopType === t ? 'bg-emerald-500 text-white border-emerald-500' : 'border-line text-ink-2')}>
-                    {STOP_TYPE_ICONS[t]} {t.replace('_', ' ')}
-                  </button>
-                ))}
-              </div>
-              <input className="tp-input" placeholder="Name (e.g. Buc-ee's Florence)" value={stopName} onChange={(e) => setStopName(e.target.value)} data-autofocus />
-              <button type="button" onClick={locate} disabled={locating} className="tp-btn-ghost w-full justify-center">
-                {locating ? <Loader2 className="w-4 h-4 animate-spin" /> : <LocateFixed className="w-4 h-4" />}
-                {coords ? `Location: ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}` : 'Use my location'}
-              </button>
-              <p className="text-xs text-ink-3">
-                Added to today&apos;s last leg ({lastLeg.from.city || lastLeg.from.name} → {lastLeg.to.city || lastLeg.to.name}) and marked visited.
-              </p>
+        {mode === 'stop' && (
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-1.5">
+              {QUICK_STOPS.map((c) => (
+                <button key={c} type="button" aria-pressed={stopType === c} onClick={() => setStopType(c)}
+                  className={clsx('px-2.5 py-1 rounded-full text-sm border', stopType === c ? 'bg-emerald-500 text-white border-emerald-500' : 'border-line text-ink-2')}>
+                  {PLACE_ICONS[c]} {c.replace('_', ' ')}
+                </button>
+              ))}
             </div>
-          ) : (
-            <p className="text-sm text-ink-2">
-              Today has no legs yet.{' '}
-              <Link href={`/trips/${tripId}/day/${day.id}`} className="text-accent underline">
-                Plan today&apos;s route
-              </Link>{' '}
-              first, then stops can be added to it.
-            </p>
-          ))}
+            <input className="tp-input" placeholder="Name (e.g. Buc-ee's Florence)" value={stopName} onChange={(e) => setStopName(e.target.value)} data-autofocus />
+            <button type="button" onClick={locate} disabled={locating} className="tp-btn-ghost w-full justify-center">
+              {locating ? <Loader2 className="w-4 h-4 animate-spin" /> : <LocateFixed className="w-4 h-4" />}
+              {coords ? `Location: ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}` : 'Use my location'}
+            </button>
+            <p className="text-xs text-ink-3">Added to the end of today with the time, marked visited.</p>
+          </div>
+        )}
 
         <div className="flex justify-end gap-2 mt-5">
           <button type="button" onClick={close} className="tp-btn-ghost">
             Cancel
           </button>
-          <button type="button" onClick={save} disabled={busy || (mode === 'stop' && !lastLeg)} className="tp-btn-primary">
+          <button type="button" onClick={save} disabled={busy} className="tp-btn-primary">
             {busy && <Loader2 className="w-4 h-4 animate-spin" />} Add
           </button>
         </div>

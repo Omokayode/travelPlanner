@@ -24,7 +24,7 @@ export default function Navbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-line bg-base/90 backdrop-blur-md pt-[env(safe-area-inset-top)]">
+      <header className="sticky top-0 z-40 border-b border-line bg-page/90 backdrop-blur-md pt-[env(safe-area-inset-top)]">
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5 group">
             <div className="w-7 h-7 rounded-lg bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/30 group-hover:shadow-emerald-500/50 transition-shadow">
@@ -67,7 +67,7 @@ export default function Navbar() {
 
       <nav
         aria-label="Main"
-        className="tabbar md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-line bg-base/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]"
+        className="tabbar md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-line bg-page/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]"
       >
         <div className="grid grid-cols-4">
           {LINKS.map((l) => {

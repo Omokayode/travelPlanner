@@ -255,7 +255,7 @@ export default function BudgetPanel({ tripId, trip, filterDayId }: Props) {
 
           {proposedItems.length === 0 && (
             <div className="tp-card text-center py-8 text-ink/30 border-dashed text-sm">
-              No planned budget yet. Add items or complete route segments to auto-populate.
+              No planned budget yet. Add items, or plan the route and fuel and tolls appear here.
             </div>
           )}
 

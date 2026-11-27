@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import type { Day, Lodging, Segment, Trip } from '@/lib/types'
-import { buildDays, dayStops, dayTotals, lodgingForDate, overallStats, resizeDays, tripStats, tripStatus } from './trip'
+import type { Day, Lodging, Place, Travel, Trip } from '@/lib/types'
+import { buildDays, dayTotals, lodgingForDate, overallStats, resizeDays, tripStats, tripStatus } from './trip'
 import { haversineMiles, minDistanceToRoute } from './geo'
 
 const loc = (name: string) => ({ id: name, name, coords: { lat: 0, lng: 0 } })
-const seg = (p: Partial<Segment>): Segment => ({ id: 's', from: loc('a'), to: loc('b'), mode: 'drive', stops: [], ...p })
+const place = (name: string, travel?: Travel, cost?: number): Place => ({ id: name, name, category: 'city', location: loc(name), travel, cost })
 const day = (p: Partial<Day>): Day => ({
-  id: 'd', date: '2025-07-01', dayNumber: 1, segments: [], activities: [], visited: false, ...p,
+  id: 'd', date: '2025-07-01', dayNumber: 1, places: [], visited: false, ...p,
 })
 let n = 0
 const id = () => `id${++n}`
@@ -14,30 +14,30 @@ const id = () => `id${++n}`
 describe('day and trip totals', () => {
   const d1 = day({
     visited: true,
-    segments: [
-      seg({ distance: 100, duration: 90, fuelCost: 10, tollCost: 4, cost: 14, stops: [{ id: 'x' } as never] }),
-      seg({ distance: 50.5, duration: 30, cost: 0 }),
-      // a leg saved without a stop list (old data) must not break anything
-      { ...seg({ distance: 1 }), stops: undefined as unknown as [] },
+    places: [
+      place('start'),
+      place('a', { mode: 'drive', distance: 100, duration: 90, fuelCost: 10, tollCost: 4, cost: 14 }),
+      place('museum', { mode: 'walk', distance: 50.5, duration: 30, cost: 0 }, 20),
+      place('b', { mode: 'drive', distance: 1 }),
     ],
-    activities: [{ id: 'a', name: 'Museum', type: 'attraction', visited: false, cost: 20 }],
   })
-  const d2 = day({ id: 'd2', dayNumber: 2, segments: [seg({ distance: 10, cost: 3 })] })
+  const d2 = day({ id: 'd2', dayNumber: 2, places: [place('x'), place('y', { mode: 'drive', distance: 10, cost: 3 })] })
 
-  it('adds up a day, including activities', () => {
-    expect(dayTotals(d1)).toEqual({ miles: 151.5, driveMinutes: 120, fuelCost: 10, tollCost: 4, cost: 34, stops: 1 })
-    expect(dayStops(d1)).toHaveLength(1)
-    expect(dayTotals({})).toEqual({ miles: 0, driveMinutes: 0, fuelCost: 0, tollCost: 0, cost: 0, stops: 0 })
+  it('adds up a day from the travel between places, plus money spent at places', () => {
+    expect(dayTotals(d1)).toEqual({ miles: 151.5, driveMinutes: 120, fuelCost: 10, tollCost: 4, cost: 34, places: 4 })
+    expect(dayTotals({})).toEqual({ miles: 0, driveMinutes: 0, fuelCost: 0, tollCost: 0, cost: 0, places: 0 })
   })
 
   it('adds up a trip', () => {
     const s = tripStats({ days: [d1, d2], visitedCities: ['Atlanta', 'Nashville'] })
-    expect(s).toMatchObject({ totalMiles: 162, totalDrivingHours: 2, totalCost: 37, citiesCount: 2, daysCompleted: 1, totalDays: 2, stopsCount: 1 })
+    expect(s).toMatchObject({ totalMiles: 162, totalDrivingHours: 2, totalCost: 37, citiesCount: 2, daysCompleted: 1, totalDays: 2, stopsCount: 6 })
   })
 
   it('adds up the dashboard', () => {
-    const t = { days: [d1, d2], visitedCities: ['A'] } as unknown as Trip
-    expect(overallStats([t, t])).toEqual({ miles: 324, cities: 2, cost: 74 })
+    const t = { days: [d1, d2], visitedCities: ['A, X', 'B, Y'] } as unknown as Trip
+    const u = { days: [d2], visitedCities: ['a, x', 'C, Z'] } as unknown as Trip
+    // a city on two trips counts once
+    expect(overallStats([t, u])).toEqual({ miles: 172, cities: 3, cost: 40 })
   })
 })
 

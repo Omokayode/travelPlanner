@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { v4 as uuidv4 } from 'uuid'
 import { z } from 'zod'
-import { StopType } from '@/lib/types'
+import type { PlaceCategory } from '@/lib/types'
 import { minDistanceToRoute } from '@/lib/domain/geo'
 import { overpass } from '@/lib/osm'
 
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
     const { from, to, preferences, routeCoords } = parsed.data
 
-    const tagMap: Partial<Record<StopType, string>> = {
+    const tagMap: Partial<Record<PlaceCategory, string>> = {
       rest_area: 'amenity=rest_area',
       gas_station: 'amenity=fuel',
       food: 'amenity=restaurant',
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     const bbox = `${minLat},${minLng},${maxLat},${maxLng}`
 
     // Build Overpass query using bounding box + around for better results
-    const prefs: StopType[] = preferences || ['rest_area', 'gas_station', 'food', 'attraction']
+    const prefs: PlaceCategory[] = preferences || ['rest_area', 'gas_station', 'food', 'attraction']
 
     // Sample route points for around queries
     let aroundClauses = ''
@@ -121,11 +121,9 @@ out body 60;`
             address: el.tags['addr:full'] || el.tags['addr:street'],
             city: el.tags['addr:city'],
           },
-          type: stopType,
+          category: stopType,
           name: el.tags.name || stopType.replace('_', ' '),
-          description: el.tags.description || el.tags['addr:city'],
-          visited: false,
-          isAutoSuggested: true,
+          notes: el.tags.description,
         }
       })
 

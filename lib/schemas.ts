@@ -30,7 +30,8 @@ const localDateTime = z
 export const TRIP_TYPES = ['road_trip', 'flight', 'train', 'mixed'] as const
 export const TRANSPORT_MODES = ['drive', 'flight', 'train', 'bus', 'ferry', 'walk'] as const
 
-export const placeSchema = z.object({
+/** A location: name + coordinates (+ address parts). */
+export const locationSchema = z.object({
   id: optText(300),
   name: text(500),
   address: optText(1000),
@@ -40,60 +41,54 @@ export const placeSchema = z.object({
   coords: z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }),
 })
 
-export const stopSchema = z.object({
-  id: idSchema,
-  location: placeSchema,
-  type: text(40),
-  name: text(500),
-  description: optText(5000),
-  rating: optNum(0, 10),
-  duration: optNum(0, 100_000).transform((v) => (v === undefined ? v : Math.round(v))),
-  notes: optText(5000),
-  visited: z.boolean().optional(),
-  isAutoSuggested: z.boolean().optional(),
-  osmId: optText(100),
-})
+export const PLACE_CATEGORIES = [
+  'city', 'lodging', 'airport', 'station', 'food', 'coffee', 'attraction', 'museum', 'historical', 'park',
+  'national_park', 'scenic', 'viewpoint', 'shopping', 'nightlife', 'gas_station', 'bucees', 'rest_area',
+  'state_line', 'love_lock', 'other',
+] as const
 
-export const segmentSchema = z.object({
-  id: idSchema,
-  from: placeSchema,
-  to: placeSchema,
+export const travelSchema = z.object({
   mode: z.enum(TRANSPORT_MODES),
+  auto: z.boolean().optional(),
   distance: optNum(0, 100_000),
   duration: optNum(0, 1_000_000),
-  cost: optMoney,
-  fuelCost: optMoney,
-  fuelGallons: optNum(0, 100_000),
-  tollCost: optMoney,
-  bookingRef: optText(200),
-  confirmationText: optText(20_000),
-  stops: z.array(stopSchema).max(200).default([]),
   routeCoords: z
     .array(z.tuple([z.number().finite(), z.number().finite()]))
     .max(100_000)
     .nullish()
     .transform((v) => v ?? undefined),
-  departureTime: localDateTime,
-  arrivalTime: localDateTime,
+  fuelCost: optMoney,
+  fuelGallons: optNum(0, 100_000),
+  tollCost: optMoney,
+  cost: optMoney,
   carrier: optText(200),
   flightNumber: optText(40),
-  notes: optText(10_000),
+  bookingRef: optText(200),
+  confirmationText: optText(20_000),
+  departureTime: localDateTime,
+  arrivalTime: localDateTime,
 })
 
-export const activitySchema = z.object({
+/** A place on a day; `travel` = how you get there from the previous place. */
+export const placeSchema = z.object({
   id: idSchema,
-  name: text(500),
-  type: text(40),
-  location: placeSchema.nullish().transform((v) => v ?? undefined),
-  time: optText(40),
-  duration: optNum(0, 100_000).transform((v) => (v === undefined ? v : Math.round(v))),
-  cost: optMoney,
+  name: text(500).trim().min(1),
+  // unknown categories (older clients) become "other"
+  category: z.string().max(40).transform((c) => ((PLACE_CATEGORIES as readonly string[]).includes(c) ? c : 'other') as (typeof PLACE_CATEGORIES)[number]),
+  location: locationSchema,
+  travel: travelSchema.nullish().transform((v) => v ?? undefined),
+  arriveTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$|^$/, 'must be HH:mm')
+    .nullish()
+    .transform((v) => v || undefined),
+  stayMinutes: optNum(0, 100_000).transform((v) => (v === undefined ? v : Math.round(v))),
   notes: optText(10_000),
+  cost: optMoney,
   website: optText(2000),
   phone: optText(100),
-  rating: optNum(0, 10),
   visited: z.boolean().optional(),
-  isHighlight: z.boolean().optional(),
+  osmId: optText(100),
 })
 
 export const daySchema = z.object({
@@ -105,15 +100,14 @@ export const daySchema = z.object({
   startCity: optText(200),
   endCity: optText(200),
   visited: z.boolean().optional(),
-  segments: z.array(segmentSchema).max(100).default([]),
-  activities: z.array(activitySchema).max(200).default([]),
+  places: z.array(placeSchema).max(200).default([]),
 })
 
 export const lodgingSchema = z
   .object({
     id: idSchema,
     name: text(500).trim().min(1),
-    location: placeSchema,
+    location: locationSchema,
     checkIn: dateSchema,
     checkOut: dateSchema,
     confirmationText: optText(20_000),
@@ -123,10 +117,9 @@ export const lodgingSchema = z
   })
   .refine((l) => l.checkOut >= l.checkIn, 'checkOut must be on or after checkIn')
 
+export type LocationInput = z.infer<typeof locationSchema>
+export type TravelInput = z.infer<typeof travelSchema>
 export type PlaceInput = z.infer<typeof placeSchema>
-export type StopInput = z.infer<typeof stopSchema>
-export type SegmentInput = z.infer<typeof segmentSchema>
-export type ActivityInput = z.infer<typeof activitySchema>
 export type DayInput = z.infer<typeof daySchema>
 export type LodgingInput = z.infer<typeof lodgingSchema>
 

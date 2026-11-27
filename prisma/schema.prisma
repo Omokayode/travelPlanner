@@ -66,6 +66,8 @@ model AppSettings {
   gasPricePremium Float?
   gasPriceDiesel  Float?
   savedVehicles   Json?
+  /// "City, State" you travel from; not counted as a city visited
+  homeCity        String?
   updatedAt       DateTime @updatedAt
 }
 
@@ -81,6 +83,8 @@ model Day {
   visited    Boolean  @default(false)
 
   trip       Trip       @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  places     Place[]
+  /// Phase 2 tables, replaced by Place in 1.7.0; kept (not written) until the move is verified
   segments   Segment[]
   activities Activity[]
   expenses   Expense[]
@@ -89,7 +93,56 @@ model Day {
   @@index([tripId])
 }
 
-/// One leg of a day: a drive, flight, train…
+/// A place on a day, in visiting order. travel* = how you get here from the previous place.
+model Place {
+  id          String   @id
+  dayId       String
+  position    Int
+  name        String
+  category    String
+  arriveTime  String? // "HH:mm" local
+  stayMinutes Int?
+  notes       String?
+  cost        Decimal? @db.Decimal(12, 2)
+  website     String?
+  phone       String?
+  visited     Boolean  @default(false)
+  osmId       String?
+
+  placeName    String
+  placeAddress String?
+  placeCity    String?
+  placeState   String?
+  placeCountry String?
+  placeLat     Float
+  placeLng     Float
+  placeId      String?
+
+  travelMode       TransportMode?
+  /// true: routed by the app; false: typed in / looked up
+  travelAuto       Boolean       @default(true)
+  /// "lat,lng>lat,lng" of the hop the numbers were worked out for (re-routed when it changes)
+  travelKey        String?
+  travelMiles      Float?
+  travelMinutes    Float?
+  travelRoute      Json?
+  fuelCost         Decimal?      @db.Decimal(12, 2)
+  fuelGallons      Float?
+  tollCost         Decimal?      @db.Decimal(12, 2)
+  travelCost       Decimal?      @db.Decimal(12, 2)
+  carrier          String?
+  flightNumber     String?
+  bookingRef       String?
+  confirmationText String?
+  departureTime    String?
+  arrivalTime      String?
+
+  day Day @relation(fields: [dayId], references: [id], onDelete: Cascade)
+
+  @@index([dayId])
+}
+
+/// One leg of a day (before 1.7.0 — now Place.travel*). Read-only, dropped in a later release.
 model Segment {
   id       String        @id
   dayId    String

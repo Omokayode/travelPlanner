@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client'
 import { z } from 'zod'
 import prisma from '@/lib/db'
 import { handler, parseBody } from '@/lib/http'
+import { recomputeVisitedCities } from '@/lib/server/store'
 
 export const dynamic = 'force-dynamic' // never pre-render or cache at build time
 
@@ -35,6 +36,8 @@ const settingsInput = z
     gasPricePremium: price,
     gasPriceDiesel: price,
     savedVehicles: z.array(vehicle).max(50).optional(),
+    /** "City, State" you travel from — not counted as a city visited */
+    homeCity: z.string().trim().max(200).nullable().optional(),
   })
   .strip()
 
@@ -64,10 +67,20 @@ export const PUT = handler(async (req: NextRequest) => {
   if (immichApiKey) data.immichApiKey = immichApiKey
   if (clearImmichApiKey) data.immichApiKey = null
   if (data.immichUrl === '') data.immichUrl = null
-  const saved = await prisma.appSettings.upsert({
-    where: { id: 'singleton' },
-    create: { id: 'singleton', ...(data as Omit<Prisma.AppSettingsCreateInput, 'id'>) },
-    update: data,
+  if (data.homeCity === '') data.homeCity = null
+  const saved = await prisma.$transaction(async (tx) => {
+    const before = await tx.appSettings.findUnique({ where: { id: 'singleton' }, select: { homeCity: true } })
+    const s = await tx.appSettings.upsert({
+      where: { id: 'singleton' },
+      create: { id: 'singleton', ...(data as Omit<Prisma.AppSettingsCreateInput, 'id'>) },
+      update: data,
+    })
+    // a different home city changes what counts as visited on every trip
+    if ((before?.homeCity ?? null) !== s.homeCity) {
+      const trips = await tx.trip.findMany({ select: { id: true } })
+      for (const t of trips) await recomputeVisitedCities(tx, t.id)
+    }
+    return s
   })
   return NextResponse.json(publicView(saved))
 })

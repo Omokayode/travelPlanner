@@ -1,34 +1,47 @@
-// app/trips/[id]/page.tsx
+// app/trips/[id]/page.tsx — the trip: all days with their places on the left (Wanderlog style),
+// a map on the right that follows the day you are reading. Lodging, packing, budget and photos
+// are separate views. On phones the map opens from a button.
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import Dialog from '@/components/ui/Dialog'
-import { confirmDialog } from '@/components/ui/Confirm'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { format, parseISO } from 'date-fns'
-import { ArrowLeft, Car, Plane, Train, Layers, CalendarDays, MapPin, ExternalLink, Trash2, Navigation, Globe, Loader2, Edit2, Check, Plus, List, GitCommitVertical } from 'lucide-react'
+import { ArrowLeft, BedDouble, Camera, Car, CalendarDays, Edit2, Layers, Map as MapIcon, MapPin, Package, Plane, Receipt, Route, Train, Trash2, X, ListOrdered } from 'lucide-react'
+import clsx from 'clsx'
 import Navbar from '@/components/Navbar'
 import PageSkeleton from '@/components/ui/PageSkeleton'
-import MapView from '@/components/MapView'
+import { confirmDialog } from '@/components/ui/Confirm'
 import PackingListPanel from '@/components/PackingListPanel'
 import BudgetPanel from '@/components/BudgetPanel'
 import LodgingPanel from '@/components/LodgingPanel'
 import ImmichPanel from '@/components/ImmichPanel'
-import TripTimeline from '@/components/TripTimeline'
 import QuickAdd from '@/components/QuickAdd'
 import ShareTrip from '@/components/ShareTrip'
-import { Trip, Day, Lodging } from '@/lib/types'
-import { getGoogleMapsUrl, getWazeUrl } from '@/lib/api'
+import EditDatesDialog from '@/components/trip/EditDatesDialog'
+import DaySection, { insertBetween, type DragState } from '@/components/itinerary/DaySection'
+import PlaceEditor from '@/components/itinerary/PlaceEditor'
+import TravelEditor from '@/components/itinerary/TravelEditor'
+import StopsOnTheWay from '@/components/itinerary/StopsOnTheWay'
+import PlacesMap from '@/components/itinerary/PlacesMapLazy'
+import type { Day, Lodging, Place, Travel, Trip } from '@/lib/types'
 import { lodgingForDate, tripStats } from '@/lib/domain/trip'
-import { daysInclusive, isIsoDate, todayLocal } from '@/lib/domain/dates'
+import { todayLocal } from '@/lib/domain/dates'
+import { cityName } from '@/lib/domain/cities'
+import { dayColor } from '@/lib/dayColors'
+import { formatMiles } from '@/lib/format'
 import { api, reportError } from '@/lib/client'
-import StatTile from '@/components/ui/StatTile'
-import DayRow from '@/components/trip/DayRow'
-import clsx from 'clsx'
+import { useMediaQuery } from '@/lib/useMediaQuery'
 
 const TYPE_ICONS = { road_trip: Car, flight: Plane, train: Train, mixed: Layers }
-type Tab = 'itinerary' | 'lodging' | 'packing' | 'budget' | 'photos'
+type View = 'itinerary' | 'lodging' | 'packing' | 'budget' | 'photos'
+const VIEWS: { key: View; label: string; icon: typeof Car }[] = [
+  { key: 'itinerary', label: 'Itinerary', icon: ListOrdered },
+  { key: 'lodging', label: 'Lodging', icon: BedDouble },
+  { key: 'packing', label: 'Packing', icon: Package },
+  { key: 'budget', label: 'Budget', icon: Receipt },
+  { key: 'photos', label: 'Photos', icon: Camera },
+]
 
 export default function TripPage() {
   const params = useParams()
@@ -36,52 +49,163 @@ export default function TripPage() {
   const tripId = params.id as string
 
   const [trip, setTrip] = useState<Trip | null>(null)
+  const tripRef = useRef<Trip | null>(null)
+  tripRef.current = trip
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<Tab>('itinerary')
+  const [view, setView] = useState<View>('itinerary')
+  const [activeDay, setActiveDay] = useState(1)
+  const [activePlace, setActivePlace] = useState<string | null>(null)
+  const [saving, setSaving] = useState<Set<number>>(new Set())
+  const [drag, setDrag] = useState<DragState | null>(null)
+  const [placeEdit, setPlaceEdit] = useState<{ place: Place; dayNumber: number } | null>(null)
+  const [travelEdit, setTravelEdit] = useState<{ from: Place; to: Place; day: Day } | null>(null)
+  const [stopsFor, setStopsFor] = useState<{ from: Place; to: Place; dayNumber: number } | null>(null)
   const [editingDates, setEditingDates] = useState(false)
-  const [newStart, setNewStart] = useState('')
-  const [newEnd, setNewEnd] = useState('')
-  const [savingDates, setSavingDates] = useState(false)
-  const [dateConfirm, setDateConfirm] = useState<{ add: number; remove: number } | null>(null)
-  const [dayView, setDayView] = useState<'list' | 'timeline'>('list')
+  const [mapOpen, setMapOpen] = useState(false)
+  const queues = useRef(new Map<number, Promise<unknown>>())
+  const wide = useMediaQuery('(min-width: 1024px)') // lg: map beside the list
+
+  const load = useCallback(
+    async (quiet = false) => {
+      try {
+        setTrip(await api<Trip>(`/api/trips/${tripId}`))
+      } catch (err) {
+        if (!quiet) {
+          reportError(err, 'Could not load the trip')
+          router.push('/')
+        }
+      } finally {
+        setLoading(false)
+      }
+    },
+    [tripId, router],
+  )
   useEffect(() => {
-    try { if (localStorage.getItem('tp-day-view') === 'timeline') setDayView('timeline') } catch { /* no storage */ }
-  }, [])
-  const chooseDayView = (v: 'list' | 'timeline') => {
-    setDayView(v)
-    try { localStorage.setItem('tp-day-view', v) } catch { /* no storage */ }
+    load()
+  }, [load])
+
+  // jump to #day-N (old day links redirect here)
+  useEffect(() => {
+    if (!trip) return
+    const m = /^#day-(\d+)$/.exec(window.location.hash)
+    if (m) setTimeout(() => document.getElementById(`day-${m[1]}`)?.scrollIntoView({ block: 'start' }), 50)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, after the first load
+  }, [!!trip])
+
+  // which day is being read → the map follows it
+  const sections = useRef(new Map<number, HTMLElement>())
+  useEffect(() => {
+    if (!trip || view !== 'itinerary') return
+    const io = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
+        const n = Number((visible[0]?.target as HTMLElement | undefined)?.dataset.day)
+        if (n) setActiveDay(n)
+      },
+      { rootMargin: '-30% 0px -60% 0px' },
+    )
+    sections.current.forEach((el) => io.observe(el))
+    return () => io.disconnect()
+  }, [trip, view])
+
+  const replaceDays = (days: Day[]) =>
+    setTrip((t) => (t ? { ...t, days: t.days.map((d) => days.find((x) => x.id === d.id) ?? d) } : t))
+
+  /** Save one day: shown at once, travel filled in when the server answers. Saves of a day run in order. */
+  const saveDay = (day: Day) => {
+    replaceDays([day])
+    setSaving((s) => new Set(s).add(day.dayNumber))
+    const prev = queues.current.get(day.dayNumber) ?? Promise.resolve()
+    const run = prev
+      .catch(() => undefined)
+      .then(() => api<Day>(`/api/trips/${tripId}/days/${day.id}`, 'PUT', day))
+      .then((saved) => replaceDays([saved]))
+      .catch((err) => {
+        reportError(err, 'Could not save the day')
+        load(true)
+      })
+      .finally(() => {
+        if (queues.current.get(day.dayNumber) === run) {
+          queues.current.delete(day.dayNumber)
+          setSaving((s) => {
+            const n = new Set(s)
+            n.delete(day.dayNumber)
+            return n
+          })
+          if (!queues.current.size) load(true) // cities and totals from the server
+        }
+      })
+    queues.current.set(day.dayNumber, run)
   }
 
-  const load = useCallback(async () => {
+  /** Save several days together (a place moving between days). */
+  const saveDays = async (days: Day[]) => {
+    replaceDays(days)
+    setSaving((s) => new Set([...Array.from(s), ...days.map((d) => d.dayNumber)]))
     try {
-      const t = await api<Trip>(`/api/trips/${tripId}`)
-      setTrip(t)
-      setNewStart(t.startDate)
-      setNewEnd(t.endDate)
+      replaceDays(await api<Day[]>(`/api/trips/${tripId}/days`, 'PUT', { days }))
+      load(true)
     } catch (err) {
-      reportError(err, 'Could not load the trip')
-      router.push('/')
+      reportError(err, 'Could not move the place')
+      load(true)
     } finally {
-      setLoading(false)
+      setSaving((s) => {
+        const n = new Set(s)
+        days.forEach((d) => n.delete(d.dayNumber))
+        return n
+      })
     }
-  }, [tripId, router])
+  }
 
-  useEffect(() => { load() }, [load])
+  const firstNoTravel = (places: Place[]) => places.map((p, i) => (i === 0 ? { ...p, travel: undefined } : p))
+  const dayByNumber = (n: number) => tripRef.current?.days.find((d) => d.dayNumber === n)
 
-  const handleMarkVisited = async (day: Day) => {
-    if (!trip) return
-    try {
-      await api(`/api/trips/${tripId}/days/${day.id}`, 'PUT', { ...day, visited: !day.visited })
-      load() // visited cities are recalculated on the server
-    } catch (err) {
-      reportError(err, 'Could not update the day')
-    }
+  /** Move a place to another day (at index, or the end). */
+  const moveToDay = (placeId: string, fromN: number, toN: number, index?: number, changed?: Place) => {
+    const from = dayByNumber(fromN)
+    const to = dayByNumber(toN)
+    if (!from || !to) return
+    const p = changed ?? from.places.find((x) => x.id === placeId)
+    if (!p) return
+    const moved: Place = { ...p, travel: p.travel?.auto === false ? p.travel : { mode: p.travel?.mode || 'drive', auto: true } }
+    const target = [...to.places]
+    target.splice(index ?? target.length, 0, moved)
+    saveDays([
+      { ...from, places: firstNoTravel(from.places.filter((x) => x.id !== placeId)) },
+      { ...to, places: firstNoTravel(target) },
+    ])
+  }
+
+  const onDropAt = (toN: number, index: number) => {
+    const d = drag
+    setDrag(null)
+    if (!d) return
+    if (d.dayNumber !== toN) return moveToDay(d.placeId, d.dayNumber, toN, index)
+    const day = dayByNumber(toN)
+    if (!day) return
+    const from = day.places.findIndex((p) => p.id === d.placeId)
+    if (from < 0) return
+    const next = [...day.places]
+    const [p] = next.splice(from, 1)
+    next.splice(index > from ? index - 1 : index, 0, p)
+    if (next.every((x, i) => x.id === day.places[i].id)) return
+    saveDay({ ...day, places: firstNoTravel(next) })
+  }
+
+  const focusPlace = (id: string, dayNumber?: number) => {
+    setActivePlace(id)
+    if (dayNumber) setActiveDay(dayNumber)
+  }
+  const revealPlace = (id: string, dayNumber: number) => {
+    focusPlace(id, dayNumber)
+    setMapOpen(false)
+    document.getElementById(`place-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
   const handleDelete = async () => {
     const ok = await confirmDialog({
       title: `Delete “${trip?.name}”?`,
-      message: 'All its days, legs, lodging, packing list and expenses are deleted too. This cannot be undone.',
+      message: 'All its days, places, lodging, packing list and expenses are deleted too. This cannot be undone.',
       confirmLabel: 'Delete trip',
       danger: true,
     })
@@ -94,266 +218,255 @@ export default function TripPage() {
     }
   }
 
-  const handleLodgingUpdate = (lodgings: Lodging[]) => {
-    setTrip(t => t ? { ...t, lodgings } : t)
-  }
+  const days = useMemo(() => [...(trip?.days || [])].sort((a, b) => a.dayNumber - b.dayNumber), [trip])
+  const mapDays = useMemo(() => days.map((d) => ({ dayNumber: d.dayNumber, color: dayColor(d.dayNumber), places: d.places })), [days])
 
-  const openDateEdit = () => {
-    setNewStart(trip!.startDate)
-    setNewEnd(trip!.endDate)
-    setEditingDates(true)
-    setDateConfirm(null)
-  }
-
-  const checkDateChange = () => {
-    if (!trip) return
-    if (!isIsoDate(newStart) || !isIsoDate(newEnd) || newEnd < newStart) { reportError(null, 'The end date must be on or after the start date.'); return }
-    const oldDays = trip.days.length
-    const newDays = daysInclusive(newStart, newEnd)
-    const diff = newDays - oldDays
-    if (diff === 0) { applyDateChange(); return }
-    setDateConfirm({ add: Math.max(0, diff), remove: Math.max(0, -diff) })
-  }
-
-  const applyDateChange = async () => {
-    if (!trip) return
-    setSavingDates(true)
-    try {
-      // one server call: re-dates, adds or removes days in a single transaction
-      await api(`/api/trips/${tripId}/dates`, 'PUT', { startDate: newStart, endDate: newEnd })
-      setEditingDates(false)
-      setDateConfirm(null)
-      load()
-    } catch (err) {
-      reportError(err, 'Could not change the dates')
-    } finally { setSavingDates(false) }
-  }
-
-  if (loading) return (
-    <div className="min-h-screen bg-base">
-      <Navbar />
-      <PageSkeleton />
-    </div>
-  )
-
+  if (loading)
+    return (
+      <div className="min-h-screen bg-page">
+        <Navbar />
+        <PageSkeleton />
+      </div>
+    )
   if (!trip) return null
 
   const TypeIcon = TYPE_ICONS[trip.type]
   const stats = tripStats(trip)
-  const allMapSegments = trip.days?.flatMap(d => d.segments?.map(s => ({ segment: s })) || []) || []
-  const allStops = trip.days?.flatMap(d => d.segments?.flatMap(s => s.stops || []) || []) || []
-  const firstSeg = trip.days?.[0]?.segments?.[0]
-  const lastDay = trip.days?.[trip.days.length - 1]
-  const lastSeg = lastDay?.segments?.[lastDay.segments.length - 1]
-  const daysComplete = trip.days?.filter(d => d.visited).length || 0
-  const todayDay = trip.days?.find(d => d.date === todayLocal())
-  const isCompleted = daysComplete === (trip.days?.length || 0) && daysComplete > 0
+  const todayDay = days.find((d) => d.date === todayLocal())
+  const showMap = view === 'itinerary'
+  const dayOptions = days.map((d) => ({ dayNumber: d.dayNumber, label: `Day ${d.dayNumber} · ${format(parseISO(d.date), 'EEE, MMM d')}` }))
 
   return (
-    <div className="min-h-screen bg-base">
+    <div className="min-h-screen bg-page">
       <Navbar />
-      <div className="max-w-7xl mx-auto px-4 py-6">
-
-        {/* Header */}
-        <div className="flex items-start gap-4 mb-6">
-          <Link href="/" className="mt-1 p-2 rounded-lg text-ink/30 hover:text-ink/70 hover:bg-ink/5">
-            <ArrowLeft className="w-4 h-4" />
-          </Link>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <TypeIcon className="w-5 h-5 text-accent" />
-              <span className="text-xs font-medium text-ink/40 uppercase tracking-wide">{trip.type.replace('_', ' ')}</span>
-              {isCompleted && <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/15 text-ok border border-green-500/20">Completed</span>}
-            </div>
-            <h1 className="font-display text-3xl font-semibold text-ink leading-tight">{trip.name}</h1>
-            <div className="flex items-center gap-2 text-sm text-ink/40 mt-1 flex-wrap">
-              <CalendarDays className="w-4 h-4" />
-              {format(parseISO(trip.startDate), 'MMM d')} – {format(parseISO(trip.endDate), 'MMM d, yyyy')}
-              <span className="opacity-30">·</span>{trip.days?.length || 0} days
-              {trip.vehicle && <><span className="opacity-30">·</span>{trip.vehicle.make} {trip.vehicle.model}</>}
-              <button onClick={openDateEdit} className="text-accent/60 hover:text-accent flex items-center gap-1 ml-1">
-                <Edit2 className="w-3 h-3" /> Edit dates
-              </button>
-            </div>
-          </div>
-          <ShareTrip tripId={tripId} token={trip.shareToken} />
-          <button onClick={handleDelete} aria-label="Delete trip" className="p-2 rounded-lg text-ink/30 hover:text-danger hover:bg-red-500/10">
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
-
-        <Dialog open={editingDates} onClose={() => { setEditingDates(false); setDateConfirm(null) }} title="Edit trip dates">
-          <div className="space-y-4">
-              {!dateConfirm ? (
-                <>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-ink/50 text-xs mb-1 block">Start date</label>
-                      <input type="date" className="tp-input w-full" value={newStart} onChange={e => setNewStart(e.target.value)} />
-                    </div>
-                    <div>
-                      <label className="text-ink/50 text-xs mb-1 block">End date</label>
-                      <input type="date" className="tp-input w-full" value={newEnd} min={newStart} onChange={e => setNewEnd(e.target.value)} />
-                    </div>
-                  </div>
-                  <div className="text-ink/40 text-sm">
-                    {isIsoDate(newStart) && isIsoDate(newEnd) && newEnd >= newStart ? daysInclusive(newStart, newEnd) : '–'} days (currently {trip.days.length})
-                  </div>
-                  <div className="flex gap-2 justify-end">
-                    <button onClick={() => setEditingDates(false)} className="px-4 py-2 text-sm text-ink/50">Cancel</button>
-                    <button onClick={checkDateChange} className="tp-btn-primary">Review changes</button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="tp-card p-4 space-y-2">
-                    <div className="text-ink/70 text-sm">Applying this change will:</div>
-                    {dateConfirm.add > 0 && <div className="text-ok text-sm flex items-center gap-2"><Plus className="w-4 h-4" /> Add {dateConfirm.add} day{dateConfirm.add !== 1 ? 's' : ''} at the end</div>}
-                    {dateConfirm.remove > 0 && <div className="text-danger text-sm flex items-center gap-2"><Trash2 className="w-4 h-4" /> Remove {dateConfirm.remove} day{dateConfirm.remove !== 1 ? 's' : ''} from the end</div>}
-                  </div>
-                  <div className="flex gap-2 justify-end">
-                    <button onClick={() => setDateConfirm(null)} className="px-4 py-2 text-sm text-ink/50">Back</button>
-                    <button onClick={applyDateChange} disabled={savingDates} className="tp-btn-primary">
-                      {savingDates ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Confirm
-                    </button>
-                  </div>
-                </>
-              )}
-          </div>
-        </Dialog>
-
-        {/* Tabs */}
-        <div role="tablist" className="flex gap-1 mb-6 p-1 bg-ink/5 rounded-xl w-fit max-w-full overflow-x-auto">
-          {([
-            ['itinerary', 'Itinerary', '🗺️'],
-            ['photos', 'Photos', '🖼️'],
-            ['lodging', 'Lodging', '🏨'],
-            ['packing', 'Packing', '🎒'],
-            ['budget', 'Budget', '💵'],
-          ] as const).map(([t, label, icon]) => (
-            <button key={t} onClick={() => setTab(t)}
-              className={clsx('flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap',
-                tab === t ? 'bg-emerald-500 text-white' : 'text-ink/50 hover:text-ink/80')}>
-              {icon} {label}
-            </button>
-          ))}
-        </div>
-
-        {tab === 'itinerary' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Map + stats */}
-            <div className="lg:col-span-2 space-y-4">
-              <div className="tp-card p-0 overflow-hidden">
-                <MapView segments={allMapSegments} stops={allStops} height="clamp(260px, 45vh, 420px)" />
-              </div>
-              {firstSeg && lastSeg && (
-                <div className="flex gap-2">
-                  <a href={getGoogleMapsUrl(firstSeg.from, lastSeg.to, [], allMapSegments.map(s => s.segment))}
-                    target="_blank" rel="noopener noreferrer"
-                    className="tp-btn-ghost flex-1 justify-center text-sm">
-                    <Globe className="w-4 h-4 text-info" /> Google Maps <ExternalLink className="w-3 h-3" />
-                  </a>
-                  {lastSeg && (
-                    <a href={getWazeUrl(lastSeg.to)} target="_blank" rel="noopener noreferrer"
-                      className="tp-btn-ghost flex-1 justify-center text-sm">
-                      <Navigation className="w-4 h-4 text-info" /> Waze <ExternalLink className="w-3 h-3" />
-                    </a>
-                  )}
-                </div>
-              )}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <StatTile icon="🗺️" label="Miles" value={stats.totalMiles > 0 ? stats.totalMiles.toLocaleString() : '–'} />
-                <StatTile icon="⏱️" label="Drive Time" value={stats.totalDrivingHours > 0 ? `${stats.totalDrivingHours}h` : '–'} />
-                <StatTile icon="⛽" label="Fuel" value={stats.totalFuelCost > 0 ? `$${stats.totalFuelCost}` : '–'} />
-                <StatTile icon="✅" label="Done" value={`${daysComplete}/${trip.days?.length || 0}`} />
-              </div>
-            </div>
-
-            {/* Day list sidebar */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <div>
-                  <h2 className="font-display text-xl font-semibold text-ink">Days</h2>
-                  <span className="text-xs text-ink-3">{daysComplete}/{trip.days?.length || 0} complete</span>
-                </div>
-                <div role="radiogroup" aria-label="Days view" className="flex p-0.5 rounded-lg bg-ink/5 text-xs">
-                  {(['list', 'timeline'] as const).map(v => (
-                    <button key={v} type="button" role="radio" aria-checked={dayView === v} onClick={() => chooseDayView(v)}
-                      className={clsx('flex items-center gap-1 px-2.5 py-1 rounded-md capitalize',
-                        dayView === v ? 'bg-card text-ink shadow-sm' : 'text-ink-3 hover:text-ink')}>
-                      {v === 'list' ? <List className="w-3.5 h-3.5" /> : <GitCommitVertical className="w-3.5 h-3.5" />}{v}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {dayView === 'list' ? (
-                <div className="space-y-2 lg:max-h-[700px] lg:overflow-y-auto lg:pr-1">
-                  {trip.days?.map(day => (
-                    <DayRow key={day.id} day={day} tripId={tripId} isRoadTrip={trip.type === 'road_trip'}
-                      lodging={lodgingForDate(trip.lodgings, day.date)}
-                      onToggleVisited={() => handleMarkVisited(day)} />
-                  ))}
-                </div>
-              ) : (
-                <div className="tp-card lg:max-h-[700px] lg:overflow-y-auto">
-                  <TripTimeline trip={trip} />
-                </div>
-              )}
-
-              {(trip.visitedCities?.length ?? 0) > 0 && (
-                <div className="tp-card mt-4">
-                  <div className="text-xs font-medium text-ink/40 uppercase tracking-wide mb-2">Cities Visited</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {trip.visitedCities!.map(city => (
-                      <span key={city} className="flex items-center gap-1 px-2 py-1 rounded-lg bg-ink/5 text-xs text-ink/70">
-                        <MapPin className="w-3 h-3 text-accent" />{city}
-                      </span>
+      <div className={clsx('lg:grid', showMap && wide ? 'lg:grid-cols-[13rem_minmax(0,1fr)_minmax(0,42%)]' : 'lg:grid-cols-[13rem_minmax(0,1fr)]')}>
+        {/* ── left: sections and days (wide screens) ── */}
+        <aside className="hidden lg:block border-r border-line">
+          <nav aria-label="Trip" className="sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto p-3 space-y-1 text-sm">
+            {VIEWS.map((v) => (
+              <div key={v.key}>
+                <button type="button" onClick={() => setView(v.key)} aria-current={view === v.key ? 'page' : undefined}
+                  className={clsx('w-full flex items-center gap-2 px-3 py-2 rounded-lg font-medium',
+                    view === v.key ? 'bg-ink text-page' : 'text-ink-2 hover:bg-ink/5')}>
+                  <v.icon className="w-4 h-4" /> {v.label}
+                </button>
+                {v.key === 'itinerary' && view === 'itinerary' && (
+                  <ul className="mt-1 mb-2 space-y-0.5">
+                    {days.map((d) => (
+                      <li key={d.id}>
+                        <a href={`#day-${d.dayNumber}`}
+                          className={clsx('block px-3 py-1.5 rounded-lg border-l-2', activeDay === d.dayNumber ? 'bg-ink/5 text-ink' : 'text-ink-3 hover:text-ink border-transparent')}
+                          style={activeDay === d.dayNumber ? { borderColor: dayColor(d.dayNumber) } : undefined}>
+                          <span className="font-medium">{format(parseISO(d.date), 'EEE M/d')}</span>
+                          <span className="block text-xs truncate">{d.title || d.places[d.places.length - 1]?.location.city || d.places[0]?.name || '—'}</span>
+                        </a>
+                      </li>
                     ))}
-                  </div>
-                </div>
-              )}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </nav>
+        </aside>
 
-              {trip.vehicle && (
-                <div className="tp-card">
-                  <div className="text-xs font-medium text-ink/40 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                    <Car className="w-3.5 h-3.5" /> Vehicle
-                  </div>
-                  <div className="text-sm font-medium text-ink">
-                    {trip.vehicle.year && `${trip.vehicle.year} `}{trip.vehicle.make} {trip.vehicle.model}
-                  </div>
-                  <div className="text-xs text-ink/40 mt-1">{trip.vehicle.fuelEfficiency} MPG · {trip.vehicle.tankSize}gal · {trip.vehicle.fuelType}</div>
-                  <div className="mt-1.5 text-xs text-accent">Range ~{Math.round(trip.vehicle.fuelEfficiency * trip.vehicle.tankSize)} miles/tank</div>
-                </div>
-              )}
+        {/* ── middle: header + the chosen view ── */}
+        <main className="min-w-0 px-4 sm:px-6 py-5">
+          <header className="flex items-start gap-3 mb-4">
+            <Link href="/" aria-label="All trips" className="mt-1 p-2 rounded-lg text-ink-3 hover:text-ink hover:bg-ink/5">
+              <ArrowLeft className="w-4 h-4" />
+            </Link>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 text-xs font-medium text-ink-3 uppercase tracking-wide">
+                <TypeIcon className="w-4 h-4 text-accent" /> {trip.type.replace('_', ' ')}
+              </div>
+              <h1 className="font-display text-3xl sm:text-4xl font-semibold text-ink leading-tight">{trip.name}</h1>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-3 mt-1">
+                <span className="flex items-center gap-1.5">
+                  <CalendarDays className="w-4 h-4" />
+                  {format(parseISO(trip.startDate), 'MMM d')} – {format(parseISO(trip.endDate), 'MMM d, yyyy')} · {days.length} days
+                </span>
+                <button type="button" onClick={() => setEditingDates(true)} className="text-accent/80 hover:text-accent inline-flex items-center gap-1">
+                  <Edit2 className="w-3 h-3" /> Edit dates
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+            <ShareTrip tripId={tripId} token={trip.shareToken} />
+            <button type="button" onClick={handleDelete} aria-label="Delete trip" className="p-2 rounded-lg text-ink-3 hover:text-danger hover:bg-red-500/10">
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </header>
 
-        {tab === 'photos' && (
-          <div className="max-w-4xl">
-            <ImmichPanel tripId={tripId} startDate={trip.startDate} endDate={trip.endDate} />
+          {/* views on phones / tablets */}
+          <div role="tablist" className="lg:hidden flex gap-1 mb-4 p-1 bg-ink/5 rounded-xl max-w-full overflow-x-auto">
+            {VIEWS.map((v) => (
+              <button key={v.key} role="tab" aria-selected={view === v.key} type="button" onClick={() => setView(v.key)}
+                className={clsx('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap',
+                  view === v.key ? 'bg-card text-ink shadow-sm' : 'text-ink-3')}>
+                <v.icon className="w-4 h-4" /> {v.label}
+              </button>
+            ))}
           </div>
-        )}
 
-        {tab === 'lodging' && (
-          <div className="max-w-2xl">
-            <LodgingPanel trip={trip} onUpdate={handleLodgingUpdate} />
-          </div>
-        )}
+          {view === 'itinerary' && (
+            <>
+              {/* overview */}
+              <div className="flex flex-wrap gap-2 mb-2">
+                {[
+                  { icon: Route, text: stats.totalMiles ? formatMiles(stats.totalMiles) : null },
+                  { icon: Car, text: stats.totalDrivingHours ? `${stats.totalDrivingHours}h on the move` : null },
+                  { icon: Receipt, text: stats.totalFuelCost ? `$${Math.round(stats.totalFuelCost + stats.totalTollCost)} fuel & tolls` : null },
+                  { icon: MapPin, text: `${stats.citiesCount} ${stats.citiesCount === 1 ? 'city' : 'cities'} visited` },
+                ]
+                  .filter((s) => s.text)
+                  .map((s) => (
+                    <span key={s.text} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-ink/5 text-xs text-ink-2">
+                      <s.icon className="w-3.5 h-3.5" /> {s.text}
+                    </span>
+                  ))}
+                {trip.vehicle && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-ink/5 text-xs text-ink-2">
+                    <Car className="w-3.5 h-3.5" /> {trip.vehicle.make} {trip.vehicle.model} · {trip.vehicle.fuelEfficiency} mpg
+                  </span>
+                )}
+              </div>
+              {trip.visitedCities.length > 0 && (
+                <p className="text-xs text-ink-3 mb-2">
+                  Visited: {trip.visitedCities.map(cityName).join(' · ')}
+                </p>
+              )}
 
-        {tab === 'packing' && (
-          <div className="max-w-2xl">
-            <PackingListPanel tripId={tripId} tripType={trip.type} />
-          </div>
-        )}
+              {days.map((d, i) => (
+                <DaySection
+                  key={d.id}
+                  ref={(el) => {
+                    if (el) sections.current.set(d.dayNumber, el)
+                    else sections.current.delete(d.dayNumber)
+                  }}
+                  tripId={tripId}
+                  day={d}
+                  color={dayColor(d.dayNumber)}
+                  lodging={lodgingForDate(trip.lodgings, d.date)}
+                  previousEnd={days[i - 1]?.places[days[i - 1].places.length - 1]}
+                  saving={saving.has(d.dayNumber)}
+                  activePlaceId={activePlace}
+                  onSave={saveDay}
+                  onFocusPlace={(id) => focusPlace(id, d.dayNumber)}
+                  onEditPlace={(place, dayNumber) => setPlaceEdit({ place, dayNumber })}
+                  onEditTravel={(from, to, day) => setTravelEdit({ from, to, day })}
+                  onFindStops={(from, to, day) => setStopsFor({ from, to, dayNumber: day.dayNumber })}
+                  drag={drag}
+                  setDrag={setDrag}
+                  onDropAt={onDropAt}
+                />
+              ))}
+            </>
+          )}
 
-        {tab === 'budget' && (
-          <div className="max-w-2xl">
-            <BudgetPanel tripId={tripId} trip={trip} />
+          {view === 'photos' && <ImmichPanel tripId={tripId} startDate={trip.startDate} endDate={trip.endDate} />}
+          {view === 'lodging' && (
+            <div className="max-w-2xl">
+              <LodgingPanel trip={trip} onUpdate={(lodgings: Lodging[]) => setTrip((t) => (t ? { ...t, lodgings } : t))} />
+            </div>
+          )}
+          {view === 'packing' && (
+            <div className="max-w-2xl">
+              <PackingListPanel tripId={tripId} tripType={trip.type} />
+            </div>
+          )}
+          {view === 'budget' && (
+            <div className="max-w-2xl">
+              <BudgetPanel tripId={tripId} trip={trip} />
+            </div>
+          )}
+        </main>
+
+        {/* ── right: map of the day being read (wide screens) ── */}
+        {showMap && wide && (
+          <div className="border-l border-line">
+            <div className="sticky top-14 h-[calc(100vh-3.5rem)]">
+              <PlacesMap days={mapDays} lodgings={trip.lodgings} focusDay={activeDay} activePlaceId={activePlace} onPlaceClick={revealPlace} />
+              <div className="absolute top-3 left-3 z-[500] px-3 py-1.5 rounded-full bg-page/90 backdrop-blur text-xs font-medium text-ink shadow flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ background: dayColor(activeDay) }} />
+                Day {activeDay}
+              </div>
+            </div>
           </div>
         )}
       </div>
-      {todayDay && <QuickAdd tripId={tripId} day={todayDay} onSaved={load} />}
+
+      {/* phones: map button + full-screen map */}
+      {showMap && !wide && (
+        <button type="button" onClick={() => setMapOpen(true)}
+          className="lg:hidden fixed z-30 left-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-6 flex items-center gap-2 px-4 h-12 rounded-full bg-ink text-page shadow-lg">
+          <MapIcon className="w-5 h-5" /> Map
+        </button>
+      )}
+      {mapOpen && !wide && (
+        <div className="fixed inset-0 z-[1050] bg-page flex flex-col" role="dialog" aria-modal="true" aria-label="Map">
+          <div className="flex items-center gap-2 p-2 pt-[max(0.5rem,env(safe-area-inset-top))] border-b border-line">
+            <div className="flex-1 flex gap-1 overflow-x-auto">
+              {days.map((d) => (
+                <button key={d.id} type="button" onClick={() => setActiveDay(d.dayNumber)}
+                  className={clsx('px-3 py-1.5 rounded-full text-xs whitespace-nowrap border',
+                    activeDay === d.dayNumber ? 'text-white border-transparent' : 'border-line text-ink-2')}
+                  style={activeDay === d.dayNumber ? { background: dayColor(d.dayNumber) } : undefined}>
+                  Day {d.dayNumber}
+                </button>
+              ))}
+            </div>
+            <button type="button" onClick={() => setMapOpen(false)} aria-label="Close map" className="p-2 rounded-lg text-ink-2 hover:bg-ink/5">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="flex-1">
+            <PlacesMap days={mapDays} lodgings={trip.lodgings} focusDay={activeDay} activePlaceId={activePlace} onPlaceClick={revealPlace} />
+          </div>
+        </div>
+      )}
+
+      <EditDatesDialog open={editingDates} tripId={tripId} startDate={trip.startDate} endDate={trip.endDate} dayCount={days.length}
+        onClose={() => setEditingDates(false)} onChanged={() => load(true)} />
+
+      <PlaceEditor
+        place={placeEdit?.place ?? null}
+        dayNumber={placeEdit?.dayNumber ?? 1}
+        days={dayOptions}
+        onClose={() => setPlaceEdit(null)}
+        onSave={(place, toN) => {
+          const fromN = placeEdit!.dayNumber
+          setPlaceEdit(null)
+          if (toN !== fromN) return moveToDay(place.id, fromN, toN, undefined, place)
+          const day = dayByNumber(fromN)
+          if (day) saveDay({ ...day, places: day.places.map((p) => (p.id === place.id ? place : p)) })
+        }}
+      />
+
+      <TravelEditor
+        open={!!travelEdit}
+        from={travelEdit?.from ?? null}
+        to={travelEdit?.to ?? null}
+        date={travelEdit?.day.date ?? trip.startDate}
+        onClose={() => setTravelEdit(null)}
+        onSave={(travel: Travel, patch) => {
+          const te = travelEdit!
+          setTravelEdit(null)
+          const day = dayByNumber(te.day.dayNumber)
+          if (day) saveDay({ ...day, places: day.places.map((p) => (p.id === te.to.id ? { ...p, ...patch, travel } : p)) })
+        }}
+      />
+
+      <StopsOnTheWay
+        from={stopsFor?.from ?? null}
+        to={stopsFor?.to ?? null}
+        onClose={() => setStopsFor(null)}
+        onAdd={(place) => {
+          const s = stopsFor!
+          const day = dayByNumber(s.dayNumber)
+          if (day) saveDay({ ...day, places: insertBetween(day.places, s.from.id, s.to.id, place) })
+        }}
+      />
+
+      {todayDay && <QuickAdd tripId={tripId} day={todayDay} onSaved={() => load(true)} />}
     </div>
   )
 }

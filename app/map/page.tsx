@@ -47,7 +47,7 @@ export default function MapPage() {
 
   const stats = data?.totals
   return (
-    <div className="min-h-screen bg-base flex flex-col">
+    <div className="min-h-screen bg-page flex flex-col">
       <Navbar />
       <div className="flex-1 flex flex-col lg:flex-row min-h-0">
         {/* Side panel (below the map on phones) */}

@@ -1,7 +1,8 @@
 # 🧭 Trip by JKBLabs — Travel Planner
 
-A self-hosted trip planner for road trips, flights and trains. A trip is made of days; each day has
-route segments (drive, fly, train…), and each segment has stops. Around that sit fuel and toll costs,
+A self-hosted trip planner for road trips, flights and trains. A trip is made of days; each day is
+an ordered list of places (cities, sights, restaurants, hotels…), and the app works out how you get
+from one place to the next (drive or walk routed on the map; flights and trains as entered). Around that sit fuel and toll costs,
 lodging, a packing list, a budget with expenses, weather and photos from Immich.
 
 ## Features
@@ -72,6 +73,7 @@ app/
   api/                             route handlers (trips, days, budget, expenses, packing, settings,
                                    immich, stops, flights, weather)
 components/                        UI panels, map, search, cards
+  itinerary/                       day sections, place cards, travel rows, editors, the trip map
   ui/                              Dialog (focus trap), Confirm, Lightbox, ThemeSwitch, skeletons
 lib/
   domain/                          pure logic + tests: dates, fuel/tolls, distances, trip/day totals,
@@ -96,18 +98,24 @@ scripts/start.sh                   container entrypoint
 
 ## Data
 
-A trip has days; a day has legs (`Segment`, ordered), each leg has `Stop`s; a day also has
-`Activity` rows. Lodgings, packing items and expenses belong to the trip. Dates without a time are
-Postgres `DATE` columns, money is `DECIMAL(12,2)`. The API still sends and accepts the nested
-shapes in `lib/types.ts`; `lib/server/store.ts` is the only code that knows about the tables, and
-a day is saved in one transaction.
+A trip has days; a day has `Place`s in visiting order. Each place stores how you get there from
+the previous place of the day (`travel*` columns: mode, miles, minutes, route line, fuel and tolls,
+or a ticket and flight details). Lodging, packing items and expenses belong to the trip. Dates
+without a time are Postgres `DATE` columns, money is `DECIMAL(12,2)`. `lib/server/store.ts` is the
+only code that knows the tables; `lib/server/travel.ts` routes new or changed hops on save (OSRM,
+cached; fuel from the trip's car and the saved gas prices — a hop that did not change keeps the
+price it was costed at).
+
+**Cities visited** are unique "City, State" labels from days marked done; a state on its own never
+counts, and neither does the home city (Settings).
 
 Expense receipts are files in `RECEIPTS_DIR` (`/app/data/receipts` in the image — mount a volume
 there, as `docker-compose.yml` does) and are served at
 `/api/trips/<trip>/expenses/<expense>/receipt`. Back that folder up along with the database.
 
-Before 1.5.0 each day was one JSON blob (`Day.data`) and lodgings were JSON on the trip; 1.5.0
-copied them into the tables and 1.6.1 removed the old columns.
+History: before 1.5.0 a day was one JSON blob; 1.5.0 moved it to legs/stops tables, 1.6.1 dropped
+the JSON, and 1.7.0 turned legs and stops into places (the old `Segment`/`Stop`/`Activity` tables
+are kept, unused, until a later release removes them).
 
 ## Login
 

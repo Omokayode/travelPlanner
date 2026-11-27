@@ -2,7 +2,7 @@
 // Place search, routing and suggestions go through our own /api/geo/* routes (server-side,
 // cached, one User-Agent — see lib/osm.ts), never straight from the browser to OpenStreetMap.
 
-import { Activity, Coordinates, GeoLocation } from './types'
+import type { Coordinates, GeoLocation, PlaceCategory } from './types'
 
 // ─── Place search ─────────────────────────────────────────────────────────────
 
@@ -83,9 +83,20 @@ export function getWazeUrl(to: GeoLocation): string {
 
 // ─── City Suggestions for Activities ─────────────────────────────────────────
 
-export async function getCityAttractions(city: string, limit = 10): Promise<Omit<Activity, 'id' | 'visited'>[]> {
+export interface Suggestion {
+  name: string
+  category: PlaceCategory
+  location: GeoLocation
+  website?: string
+  notes?: string
+  osmId?: string
+}
+
+/** Things to see and places to eat near a point (server-side Overpass, cached). */
+export async function getNearbyPlaces(at: Coordinates, city?: string, limit = 12): Promise<Suggestion[]> {
   try {
-    const res = await fetch(`/api/geo/attractions?${new URLSearchParams({ city, limit: String(limit) })}`)
+    const q = new URLSearchParams({ lat: String(at.lat), lng: String(at.lng), limit: String(limit), ...(city ? { city } : {}) })
+    const res = await fetch(`/api/geo/attractions?${q}`)
     return res.ok ? await res.json() : []
   } catch {
     return []

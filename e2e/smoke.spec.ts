@@ -35,16 +35,12 @@ test('sign in, create a trip, see correct days, delete it', async ({ page }) => 
   // trip page: three days, day 1 on the start date (Tuesday 1 Dec)
   await expect(page).toHaveURL(/\/trips\/[^/]+$/)
   await expect(page.getByText(name).first()).toBeVisible()
-  await expect(page.getByText('Tue, Dec 1')).toBeVisible()
-  await expect(page.getByText('Thu, Dec 3')).toBeVisible()
-  await expect(page.getByText('Mon, Nov 30')).toHaveCount(0)
-
-  // a day page opens
-  await page.getByText('Tue, Dec 1').click()
-  await expect(page).toHaveURL(/\/day\//)
+  await expect(page.getByRole('heading', { name: 'Tuesday, December 1st' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Thursday, December 3rd' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Monday, November 30th' })).toHaveCount(0)
 
   // clean up through the API (same signed-in session)
-  const tripId = page.url().split('/trips/')[1].split('/')[0]
+  const tripId = page.url().split('/trips/')[1].split(/[/#]/)[0]
   const del = await page.request.delete(`/api/trips/${tripId}`)
   expect(del.ok()).toBeTruthy()
 
@@ -63,7 +59,7 @@ test('expense with a receipt photo is stored as a file and shown', async ({ page
   const id = `e2e${Date.now()}`
   const created = await page.request.post('/api/trips', {
     data: { id, name: `E2E receipts ${id}`, startDate: '2026-12-01', endDate: '2026-12-01', type: 'road_trip',
-      days: [{ id: `${id}d1`, date: '2026-12-01', dayNumber: 1, segments: [], activities: [], visited: false }] },
+      days: [{ id: `${id}d1`, date: '2026-12-01', dayNumber: 1, places: [], visited: false }] },
   })
   expect(created.ok()).toBeTruthy()
 

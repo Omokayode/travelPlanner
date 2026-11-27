@@ -1,5 +1,5 @@
 // lib/domain/trip.ts — totals, days and lodging lookups shared by the pages, panels and API.
-import type { Day, Lodging, Stop, Trip, TripStats } from '@/lib/types'
+import type { Day, Lodging, Place, Trip, TripStats } from '@/lib/types'
 import { addDays, daysInclusive } from './dates'
 
 const round = (n: number, places: number) => Math.round(n * 10 ** places) / 10 ** places
@@ -11,26 +11,22 @@ export interface DayTotals {
   driveMinutes: number
   fuelCost: number
   tollCost: number
-  /** leg costs (fuel + tolls or tickets) + activity costs */
+  /** travel costs (fuel + tolls, or tickets) + money spent at the places */
   cost: number
-  stops: number
+  places: number
 }
 
+/** Totals of a day, from how you get to each place. */
 export function dayTotals(day: Partial<Day>): DayTotals {
-  const segments = day.segments || []
+  const places: Place[] = day.places || []
   return {
-    miles: sum(segments, (s) => s.distance),
-    driveMinutes: sum(segments, (s) => s.duration),
-    fuelCost: sum(segments, (s) => s.fuelCost),
-    tollCost: sum(segments, (s) => s.tollCost),
-    cost: sum(segments, (s) => s.cost) + sum(day.activities, (a) => a.cost),
-    stops: sum(segments, (s) => (s.stops || []).length),
+    miles: sum(places, (p) => p.travel?.distance),
+    driveMinutes: sum(places, (p) => p.travel?.duration),
+    fuelCost: sum(places, (p) => p.travel?.fuelCost),
+    tollCost: sum(places, (p) => p.travel?.tollCost),
+    cost: sum(places, (p) => p.travel?.cost) + sum(places, (p) => p.cost),
+    places: places.length,
   }
-}
-
-/** All stops of a day, skipping legs without a stop list. */
-export function dayStops(day: Partial<Day>): Stop[] {
-  return (day.segments || []).flatMap((s) => s.stops || [])
 }
 
 export function tripStats(trip: Pick<Trip, 'days' | 'visitedCities'>): TripStats {
@@ -45,16 +41,17 @@ export function tripStats(trip: Pick<Trip, 'days' | 'visitedCities'>): TripStats
     citiesCount: (trip.visitedCities || []).length,
     daysCompleted: days.filter((d) => d.visited).length,
     totalDays: days.length,
-    stopsCount: sum(t, (x) => x.stops),
+    stopsCount: sum(t, (x) => x.places),
   }
 }
 
-/** Dashboard header numbers across all trips. */
+/** Dashboard header numbers across all trips; a city visited on several trips counts once. */
 export function overallStats(trips: Trip[]): { miles: number; cities: number; cost: number } {
   const stats = trips.map(tripStats)
+  const cities = new Set(trips.flatMap((t) => (t.visitedCities || []).map((c) => c.toLowerCase())))
   return {
     miles: sum(stats, (s) => s.totalMiles),
-    cities: sum(stats, (s) => s.citiesCount),
+    cities: cities.size,
     cost: round(sum(stats, (s) => s.totalCost), 2),
   }
 }
@@ -66,7 +63,7 @@ export function lodgingForDate(lodgings: Lodging[] | undefined | null, date: str
 }
 
 export function newDay(id: string, date: string, dayNumber: number): Day {
-  return { id, date, dayNumber, segments: [], activities: [], visited: false }
+  return { id, date, dayNumber, places: [], visited: false }
 }
 
 /** One Day per date from start to end; ids from makeId (uuid in the app). */
