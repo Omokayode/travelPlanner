@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { format, parseISO } from 'date-fns'
 import { ArrowLeft, Car, Plane, Train, Layers, CalendarDays, MapPin, ExternalLink, Trash2, Navigation, Globe, Loader2, Edit2, Check, Plus, List, GitCommitVertical } from 'lucide-react'
 import Navbar from '@/components/Navbar'
+import PageSkeleton from '@/components/ui/PageSkeleton'
 import MapView from '@/components/MapView'
 import PackingListPanel from '@/components/PackingListPanel'
 import BudgetPanel from '@/components/BudgetPanel'
@@ -16,6 +17,7 @@ import LodgingPanel from '@/components/LodgingPanel'
 import ImmichPanel from '@/components/ImmichPanel'
 import TripTimeline from '@/components/TripTimeline'
 import QuickAdd from '@/components/QuickAdd'
+import ShareTrip from '@/components/ShareTrip'
 import { Trip, Day, Lodging } from '@/lib/types'
 import { getGoogleMapsUrl, getWazeUrl } from '@/lib/api'
 import { lodgingForDate, tripStats } from '@/lib/domain/trip'
@@ -130,9 +132,7 @@ export default function TripPage() {
   if (loading) return (
     <div className="min-h-screen bg-base">
       <Navbar />
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 text-accent animate-spin" />
-      </div>
+      <PageSkeleton />
     </div>
   )
 
@@ -176,7 +176,8 @@ export default function TripPage() {
               </button>
             </div>
           </div>
-          <button onClick={handleDelete} className="p-2 rounded-lg text-ink/30 hover:text-danger hover:bg-red-500/10">
+          <ShareTrip tripId={tripId} token={trip.shareToken} />
+          <button onClick={handleDelete} aria-label="Delete trip" className="p-2 rounded-lg text-ink/30 hover:text-danger hover:bg-red-500/10">
             <Trash2 className="w-4 h-4" />
           </button>
         </div>

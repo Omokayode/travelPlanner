@@ -6,8 +6,9 @@ import Dialog from '@/components/ui/Dialog'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { format, parseISO } from 'date-fns'
-import { ArrowLeft, Plus, Navigation, CheckCircle2, Circle, ChevronRight, ExternalLink, Calendar, Globe, Route, Mail, Loader2 } from 'lucide-react'
+import { ArrowLeft, Plus, Navigation, CheckCircle2, Circle, ChevronRight, ExternalLink, Calendar, Globe, Route, Mail } from 'lucide-react'
 import Navbar from '@/components/Navbar'
+import PageSkeleton from '@/components/ui/PageSkeleton'
 import MapView from '@/components/MapView'
 import SegmentEditor from '@/components/SegmentEditor'
 import StopPanel from '@/components/StopPanel'
@@ -148,9 +149,7 @@ export default function DayPage() {
     return (
       <div className="min-h-screen bg-base">
         <Navbar />
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 text-accent animate-spin" />
-        </div>
+        <PageSkeleton />
       </div>
     )
   }

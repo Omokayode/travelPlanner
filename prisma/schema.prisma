@@ -50,6 +50,8 @@ model Trip {
   proposedBudget Json?
   /// Lodgings as stored before Phase 2 (now in Lodging). Kept until the move is verified; no longer written.
   legacyLodgings Json?    @map("lodgings")
+  /// Secret for the read-only share link (/share/<token>); null = not shared.
+  shareToken     String?  @unique
 
   days         Day[]
   lodgings     Lodging[]

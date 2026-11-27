@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { SESSION_COOKIE, authDisabled, sessionSecret, verifySession } from '@/lib/session'
 
-// Everything needs a session except the login page/API, the health check and static files.
-const PUBLIC = [/^\/login$/, /^\/api\/auth\/login$/, /^\/api\/health$/]
+// Everything needs a session except the login page/API, the health check, read-only share
+// pages (the secret in the URL is the key) and static files.
+const PUBLIC = [/^\/login$/, /^\/api\/auth\/login$/, /^\/api\/health$/, /^\/share\/[A-Za-z0-9_-]{43}$/]
 
 export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl

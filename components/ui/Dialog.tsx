@@ -11,6 +11,9 @@ import clsx from 'clsx'
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
+// Open dialogs, innermost last: only the top one handles Esc and Tab (a confirm over a dialog).
+const stack: object[] = []
+
 /** Keeps keyboard focus inside `ref` while active; Esc calls onEscape. Shared with Lightbox. */
 export function useFocusTrap(active: boolean, ref: React.RefObject<HTMLElement>, onEscape: () => void) {
   const escRef = useRef(onEscape)
@@ -18,11 +21,14 @@ export function useFocusTrap(active: boolean, ref: React.RefObject<HTMLElement>,
   useEffect(() => {
     if (!active || !ref.current) return
     const el = ref.current
+    const me = {}
+    stack.push(me)
     const opener = document.activeElement as HTMLElement | null
     const items = () => Array.from(el.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((n) => n.offsetParent !== null)
     const first = el.querySelector<HTMLElement>('[data-autofocus]') ?? items()[0] ?? el
     first.focus()
     const onKey = (e: KeyboardEvent) => {
+      if (stack[stack.length - 1] !== me) return
       if (e.key === 'Escape') {
         e.stopPropagation()
         escRef.current()
@@ -44,6 +50,7 @@ export function useFocusTrap(active: boolean, ref: React.RefObject<HTMLElement>,
     document.body.style.overflow = 'hidden'
     return () => {
       document.removeEventListener('keydown', onKey)
+      stack.splice(stack.indexOf(me), 1)
       document.body.style.overflow = overflow
       opener?.focus?.()
     }

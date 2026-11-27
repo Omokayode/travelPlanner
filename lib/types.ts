@@ -135,6 +135,8 @@ export interface Trip {
   isActive?: boolean
   homeCoords?: Coordinates
   lodgings?: Lodging[]
+  /** secret of the read-only share link, if shared */
+  shareToken?: string | null
 }
 
 export interface TripStats {

@@ -19,7 +19,17 @@ const nextConfig = {
     ],
   },
   async headers() {
-    return [{ source: '/:path*', headers: securityHeaders }]
+    return [
+      { source: '/:path*', headers: securityHeaders },
+      // share pages: never indexed, and the secret URL is never sent on as a referrer
+      {
+        source: '/share/:token',
+        headers: [
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+        ],
+      },
+    ]
   },
 }
 

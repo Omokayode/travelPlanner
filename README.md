@@ -4,6 +4,18 @@ A self-hosted trip planner for road trips, flights and trains. A trip is made of
 route segments (drive, fly, train…), and each segment has stops. Around that sit fuel and toll costs,
 lodging, a packing list, a budget with expenses, weather and photos from Immich.
 
+## Features
+
+- Trips made of days, legs (drive, flight, train…) and stops; fuel and toll estimates; lodging,
+  packing list, budget and expenses with receipt photos; weather; photos from Immich.
+- Dashboard with cover photos and trip status; a **world map** of every trip (`/map`) with places
+  visited, states and countries; a day-by-day **timeline**.
+- **Light and dark** themes (follows the device, or Settings → Appearance).
+- Works on a phone: bottom tab bar, and a **quick add** button during a trip (expense, note, or
+  "I'm here" stop from the phone's location).
+- **Read-only share links** per trip (Share button on the trip page): route, map, days and
+  where you stay — no costs, bookings, notes or photos. Can be replaced or turned off.
+
 ## Stack
 
 | Layer | Technology |
@@ -60,8 +72,11 @@ app/
   api/                             route handlers (trips, days, budget, expenses, packing, settings,
                                    immich, stops, flights, weather)
 components/                        UI panels, map, search, cards
+  ui/                              Dialog (focus trap), Confirm, Lightbox, ThemeSwitch, skeletons
 lib/
-  domain/                          pure logic + tests: dates, fuel/tolls, distances, trip/day totals
+  domain/                          pure logic + tests: dates, fuel/tolls, distances, trip/day totals,
+                                   trip status, what a share link may show
+  theme.ts                         light/dark choice
   types.ts                         shared types and constants
   api.ts                           browser helpers: place search, routing, map links (via /api/geo/*)
   osm.ts                           server-side OpenStreetMap access (cached, rate-limited)
