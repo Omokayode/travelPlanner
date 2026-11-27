@@ -1,34 +1,22 @@
-// lib/api.ts
+// lib/api.ts — browser helpers for places, routes and map links.
+// Place search, routing and suggestions go through our own /api/geo/* routes (server-side,
+// cached, one User-Agent — see lib/osm.ts), never straight from the browser to OpenStreetMap.
 
-import { GeoLocation, NominatimResult, OSRMRoute, OverpassElement, Coordinates } from './types'
-import { USER_AGENT } from './config'
+import { Activity, Coordinates, GeoLocation } from './types'
 
-// ─── Nominatim Geocoding ───────────────────────────────────────────────────────
+// ─── Place search ─────────────────────────────────────────────────────────────
 
 export async function searchPlaces(query: string, limit = 5): Promise<GeoLocation[]> {
-  if (!query.trim()) return []
+  if (query.trim().length < 2) return []
   try {
-    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=${limit}&addressdetails=1`
-    const res = await fetch(url, {
-      headers: { 'Accept-Language': 'en', 'User-Agent': USER_AGENT },
-    })
-    const data: NominatimResult[] = await res.json()
-    return data.map(item => ({
-      id: `nominatim_${item.place_id}`,
-      name: item.display_name.split(',')[0],
-      address: item.display_name,
-      coords: { lat: parseFloat(item.lat), lng: parseFloat(item.lon) },
-      city: item.address?.city || item.address?.town || item.address?.village,
-      state: item.address?.state,
-      country: item.address?.country,
-    }))
-  } catch (err) {
-    console.error('Geocoding error:', err)
+    const res = await fetch(`/api/geo/search?${new URLSearchParams({ q: query, limit: String(limit) })}`)
+    return res.ok ? ((await res.json()) as GeoLocation[]) : []
+  } catch {
     return []
   }
 }
 
-// ─── OSRM Routing ─────────────────────────────────────────────────────────────
+// ─── Driving route ───────────────────────────────────────────────────────────
 
 export async function getRoute(
   from: Coordinates,
@@ -36,20 +24,13 @@ export async function getRoute(
   waypoints: Coordinates[] = []
 ): Promise<{ distanceMiles: number; durationMinutes: number; coords: [number, number][] } | null> {
   try {
-    const points = [from, ...waypoints, to]
-    const coordsStr = points.map(p => `${p.lng},${p.lat}`).join(';')
-    const url = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson`
-    const res = await fetch(url)
-    const data = await res.json()
-    if (!data.routes?.length) return null
-    const route: OSRMRoute = data.routes[0]
-    return {
-      distanceMiles: route.distance / 1609.34,
-      durationMinutes: route.duration / 60,
-      coords: route.geometry.coordinates.map(([lng, lat]) => [lat, lng] as [number, number]),
-    }
-  } catch (err) {
-    console.error('Routing error:', err)
+    const res = await fetch('/api/geo/route', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ points: [from, ...waypoints, to].map(({ lat, lng }) => ({ lat, lng })) }),
+    })
+    return res.ok ? await res.json() : null
+  } catch {
     return null
   }
 }
@@ -102,45 +83,10 @@ export function getWazeUrl(to: GeoLocation): string {
 
 // ─── City Suggestions for Activities ─────────────────────────────────────────
 
-export async function getCityAttractions(city: string, limit = 10): Promise<Omit<import('./types').Activity, 'id' | 'visited'>[]> {
+export async function getCityAttractions(city: string, limit = 10): Promise<Omit<Activity, 'id' | 'visited'>[]> {
   try {
-    const searchUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&limit=1`
-    const cityRes = await fetch(searchUrl, {
-      headers: { 'User-Agent': USER_AGENT },
-    })
-    const cityData = await cityRes.json()
-    if (!cityData.length) return []
-
-    const lat = parseFloat(cityData[0].lat)
-    const lng = parseFloat(cityData[0].lon)
-    const radius = 5000 // 5km
-
-    const query = `[out:json][timeout:25];
-(
-  node["tourism"="attraction"](around:${radius},${lat},${lng});
-  node["tourism"="museum"](around:${radius},${lat},${lng});
-  node["amenity"="restaurant"]["cuisine"](around:2000,${lat},${lng});
-);
-out body ${limit};`
-
-    const res = await fetch('https://overpass-api.de/api/interpreter', {
-      method: 'POST',
-      body: query,
-    })
-    const data = await res.json()
-
-    return (data.elements || []).slice(0, limit).map((el: OverpassElement) => ({
-      name: el.tags.name || 'Unknown',
-      type: el.tags.tourism ? 'attraction' : 'food',
-      location: {
-        id: `osm_${el.id}`,
-        name: el.tags.name || 'Unknown',
-        coords: { lat: el.lat, lng: el.lon },
-        city,
-      },
-      website: el.tags.website,
-      notes: el.tags.description || el.tags.cuisine,
-    }))
+    const res = await fetch(`/api/geo/attractions?${new URLSearchParams({ city, limit: String(limit) })}`)
+    return res.ok ? await res.json() : []
   } catch {
     return []
   }

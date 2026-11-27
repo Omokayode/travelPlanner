@@ -16,7 +16,6 @@ const nextConfig = {
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'tile.openstreetmap.org' },
-      { protocol: 'https', hostname: 'nominatim.openstreetmap.org' },
     ],
   },
   async headers() {

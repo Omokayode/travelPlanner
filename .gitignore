@@ -42,3 +42,7 @@ next-env.d.ts
 coverage/
 *.pem
 *.zip
+
+# Playwright
+test-results/
+playwright-report/

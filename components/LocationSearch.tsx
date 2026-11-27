@@ -42,15 +42,19 @@ export default function LocationSearch({
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
+  // Only the newest search may update the list (older, slower replies are ignored).
+  const latest = useRef(0)
   const search = useCallback(async (q: string) => {
     if (q.length < 2) { setResults([]); return }
+    const mine = ++latest.current
     setLoading(true)
     try {
       const res = await searchPlaces(q, 6)
+      if (mine !== latest.current) return
       setResults(res)
       setOpen(true)
     } finally {
-      setLoading(false)
+      if (mine === latest.current) setLoading(false)
     }
   }, [])
 
@@ -59,7 +63,8 @@ export default function LocationSearch({
     setQuery(q)
     if (!q) { onChange(null); setResults([]); setOpen(false); return }
     clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => search(q), 350)
+    // wait for a pause in typing; place search is rate-limited (OpenStreetMap policy: 1 request/second)
+    debounceRef.current = setTimeout(() => search(q), 600)
   }
 
   const handleSelect = (loc: GeoLocation) => {

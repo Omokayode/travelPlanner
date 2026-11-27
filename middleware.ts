@@ -13,10 +13,13 @@ export async function middleware(req: NextRequest) {
   if (ok) return NextResponse.next()
 
   if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
-  const url = req.nextUrl.clone()
-  url.pathname = '/login'
-  url.search = pathname === '/' ? '' : `?next=${encodeURIComponent(pathname + search)}`
-  return NextResponse.redirect(url)
+  // Build the redirect from the host the browser used (or the proxy forwarded).
+  // Note: Next rewrites a 127.0.0.1 host to "localhost" in redirects — use http://localhost:PORT
+  // when testing locally, or the cookie (set for 127.0.0.1) won't be sent after the redirect.
+  const target = pathname === '/' ? '/login' : `/login?next=${encodeURIComponent(pathname + search)}`
+  const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || req.nextUrl.host
+  const proto = (req.headers.get('x-forwarded-proto') || req.nextUrl.protocol.replace(':', '')).split(',')[0]
+  return NextResponse.redirect(new URL(target, `${proto}://${host}`), 307)
 }
 
 export const config = {

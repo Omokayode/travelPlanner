@@ -1,32 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { USER_AGENT } from '@/lib/config'
 import { haversineMiles } from '@/lib/domain/geo'
+import { searchPlaces } from '@/lib/osm'
 
 // OpenSky Network - completely free, no API key required
 // https://openskynetwork.github.io/opensky-api/rest.html
 
-const AIRPORT_COORDS: Record<string, { lat: number; lng: number; name: string; city: string }> = {}
-
+/** Airport position by ICAO code, via the shared (cached, rate-limited) Nominatim search. */
 async function getAirportCoords(icao: string): Promise<{ lat: number; lng: number; name: string; city: string } | null> {
-  if (AIRPORT_COORDS[icao]) return AIRPORT_COORDS[icao]
+  if (!/^[A-Z0-9]{3,4}$/i.test(icao)) return null
   try {
-    // Use Nominatim to geocode the airport ICAO code
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${icao}+airport&format=json&limit=1&addressdetails=1`,
-      { headers: { 'User-Agent': USER_AGENT } }
-    )
-    const data = await res.json()
-    if (!data.length) return null
-    const r = data[0]
-    const result = {
-      lat: parseFloat(r.lat),
-      lng: parseFloat(r.lon),
-      name: r.display_name.split(',')[0],
-      city: r.address?.city || r.address?.town || r.address?.county || icao,
-    }
-    AIRPORT_COORDS[icao] = result
-    return result
-  } catch { return null }
+    const [r] = await searchPlaces(`${icao} airport`, 1)
+    if (!r) return null
+    return { lat: r.coords.lat, lng: r.coords.lng, name: r.name, city: r.city || r.state || icao }
+  } catch {
+    return null
+  }
 }
 
 function greatCircleArc(

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { USER_AGENT } from '@/lib/config'
 import { v4 as uuidv4 } from 'uuid'
 import { z } from 'zod'
-import { OverpassElement, StopType } from '@/lib/types'
+import { StopType } from '@/lib/types'
 import { minDistanceToRoute } from '@/lib/domain/geo'
+import { overpass } from '@/lib/osm'
 
 // Sample N evenly-spaced points along a GeoJSON linestring
 function sampleRoutePoints(
@@ -85,19 +85,7 @@ export async function POST(req: NextRequest) {
 );
 out body 60;`
 
-    const res = await fetch('https://overpass-api.de/api/interpreter', {
-      method: 'POST',
-      body: query,
-      headers: {
-        'Content-Type': 'text/plain',
-        'User-Agent': USER_AGENT,
-        'Accept': 'application/json',
-      },
-    })
-
-    if (!res.ok) throw new Error(`Overpass error: ${res.status}`)
-    const data = (await res.json()) as { elements?: OverpassElement[] }
-    const elements = data.elements || []
+    const elements = await overpass(query)
 
     // Filter to stops within 15 miles of the route, and deduplicate
     const routePts: [number, number][] = routeCoords?.length

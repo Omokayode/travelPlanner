@@ -43,6 +43,8 @@ npm run dev
 | `npm run lint` | ESLint (next/core-web-vitals) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run format` / `format:check` | Prettier |
+| `npm test` | unit tests (Vitest) for `lib/domain` — dates, fuel, totals |
+| `npm run test:e2e` | browser smoke test (Playwright) against a running app — set `E2E_BASE_URL` (use `localhost`, not `127.0.0.1`) and `E2E_PASSWORD` |
 | `npm run db:migrate` | create a new migration from schema changes (dev only) |
 | `npm run db:studio` | Prisma Studio |
 
@@ -59,11 +61,18 @@ app/
                                    immich, stops, flights, weather)
 components/                        UI panels, map, search, cards
 lib/
+  domain/                          pure logic + tests: dates, fuel/tolls, distances, trip/day totals
   types.ts                         shared types and constants
-  api.ts                           Nominatim / OSRM / Overpass helpers, fuel + toll maths, map links
-  stats.ts                         trip totals
+  api.ts                           browser helpers: place search, routing, map links (via /api/geo/*)
+  osm.ts                           server-side OpenStreetMap access (cached, rate-limited)
+  client.ts                        browser api() helper and error toasts
+  schemas.ts, http.ts              request validation and API error handling
+  session.ts, password.ts          login
+  immich.ts                        server-side Immich access
   config.ts                        app name, User-Agent
   db.ts                            Prisma client
+e2e/                               Playwright smoke test
+.github/workflows/ci.yml           lint, typecheck, unit tests, build, smoke test on every push
 prisma/                            schema + migrations
 scripts/start.sh                   container entrypoint
 ```
