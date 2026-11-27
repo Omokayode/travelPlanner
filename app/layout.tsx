@@ -1,5 +1,5 @@
 // app/layout.tsx
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Cormorant_Garamond, DM_Sans } from 'next/font/google'
 import './globals.css'
 
@@ -21,7 +21,12 @@ const body = DM_Sans({
 export const metadata: Metadata = {
   title: 'Trip by JKBLabs — Travel Planner',
   description: 'Plan road trips, flights, and train journeys with detailed itineraries, maps, and cost tracking.',
-  icons: { icon: '/favicon.ico' },
+  icons: { icon: '/favicon.ico', apple: '/apple-touch-icon.png' },
+  manifest: '/site.webmanifest',
+}
+
+export const viewport: Viewport = {
+  themeColor: '#0b1121',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

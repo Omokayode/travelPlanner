@@ -2,7 +2,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Trash2, Check, Star, Globe, Phone, Edit2, X, Loader2, Sparkles } from 'lucide-react'
+import { Plus, Trash2, Check, Star, Globe, Edit2, X, Loader2, Sparkles } from 'lucide-react'
 import { v4 as uuidv4 } from 'uuid'
 import { Activity, GeoLocation } from '@/lib/types'
 import { getCityAttractions } from '@/lib/api'

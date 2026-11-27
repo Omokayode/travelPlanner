@@ -6,11 +6,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { format, parseISO, addDays, differenceInDays } from 'date-fns'
 import {
-  ArrowLeft, Car, Plane, Train, Layers, CalendarDays,
-  MapPin, Fuel, ExternalLink, ChevronRight, ChevronDown,
-  CheckCircle2, Circle, Trash2, Navigation,
-  Globe, Package, Receipt, Loader2, Hotel, Edit2,
-  X, Check, Plus
+  ArrowLeft, Car, Plane, Train, Layers, CalendarDays, MapPin, ExternalLink, ChevronRight, ChevronDown, CheckCircle2, Circle, Trash2, Navigation, Globe, Loader2, Hotel, Edit2, X, Check, Plus
 } from 'lucide-react'
 import { v4 as uuidv4 } from 'uuid'
 import Navbar from '@/components/Navbar'
@@ -20,9 +16,9 @@ import BudgetPanel from '@/components/BudgetPanel'
 import LodgingPanel from '@/components/LodgingPanel'
 import ImmichPanel from '@/components/ImmichPanel'
 import TripTimeline from '@/components/TripTimeline'
-import { Trip, Day, Lodging, Segment, TRANSPORT_ICONS } from '@/lib/types'
+import { Trip, Day, Lodging, TRANSPORT_ICONS } from '@/lib/types'
 import { getGoogleMapsUrl, getWazeUrl } from '@/lib/api'
-import { getTripStats } from '@/lib/storage'
+import { getTripStats } from '@/lib/stats'
 import clsx from 'clsx'
 
 const TYPE_ICONS = { road_trip: Car, flight: Plane, train: Train, mixed: Layers }

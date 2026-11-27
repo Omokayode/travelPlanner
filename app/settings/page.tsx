@@ -1,10 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Settings, Car, Fuel, Camera, Save, Plus, Trash2, Check, Loader2 } from 'lucide-react'
+import { Settings, Car, Fuel, Camera, Plus, Trash2, Check, Loader2 } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import { Vehicle, FuelType } from '@/lib/types'
-import clsx from 'clsx'
 
 interface AppSettings {
   immichUrl?: string

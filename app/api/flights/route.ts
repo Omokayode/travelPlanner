@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { USER_AGENT } from '@/lib/config'
 
 // OpenSky Network - completely free, no API key required
 // https://openskynetwork.github.io/opensky-api/rest.html
@@ -11,7 +12,7 @@ async function getAirportCoords(icao: string): Promise<{ lat: number; lng: numbe
     // Use Nominatim to geocode the airport ICAO code
     const res = await fetch(
       `https://nominatim.openstreetmap.org/search?q=${icao}+airport&format=json&limit=1&addressdetails=1`,
-      { headers: { 'User-Agent': 'TripByJKBLabs/1.0' } }
+      { headers: { 'User-Agent': USER_AGENT } }
     )
     const data = await res.json()
     if (!data.length) return null

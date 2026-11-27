@@ -7,7 +7,7 @@ import { Plus, Map, TrendingUp, Globe, Sparkles, Loader2 } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import TripCard from '@/components/TripCard'
 import { Trip } from '@/lib/types'
-import { getTripStats } from '@/lib/storage'
+import { getTripStats } from '@/lib/stats'
 
 function calcStats(trips: Trip[]) {
   return trips.reduce((acc, trip) => {

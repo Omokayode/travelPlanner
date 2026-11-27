@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Cloud, RefreshCw, MapPin, Thermometer, Droplets, Wind } from 'lucide-react'
+import { Cloud, RefreshCw, MapPin, Thermometer, Droplets } from 'lucide-react'
 import { WeatherDay } from '@/lib/types'
 import clsx from 'clsx'
 
@@ -106,7 +106,7 @@ export default function WeatherCard({ dayDate, locationName, lat, lng }: Props) 
         </div>
         <div className="flex flex-col items-center gap-1">
           <Droplets className={clsx('w-4 h-4', rainy ? 'text-blue-400' : 'text-white/20')} />
-          <div className="text-white/80 text-sm font-medium">{weather.precipitation}"</div>
+          <div className="text-white/80 text-sm font-medium">{weather.precipitation}&quot;</div>
           <div className="text-white/40 text-xs">Precip</div>
         </div>
         <div className="flex flex-col items-center gap-1">

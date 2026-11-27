@@ -4,11 +4,9 @@
 import { useState, useEffect } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import {
-  Car, Plane, Train, Bus, Ship, Footprints,
-  Loader2, Navigation, DollarSign, Fuel, X, Check,
-  Clock, Route, AlertCircle, ChevronDown
+  Car, Plane, Train, Bus, Ship, Footprints, Loader2, Fuel, X, Check, Clock, Route, AlertCircle
 } from 'lucide-react'
-import { Segment, TransportMode, GeoLocation, Vehicle, TRANSPORT_ICONS, FuelType, FUEL_PRICES } from '@/lib/types'
+import { Segment, TransportMode, GeoLocation, Vehicle, FUEL_PRICES } from '@/lib/types'
 import { getRoute, calculateFuelCost, estimateTolls } from '@/lib/api'
 import LocationSearch from './LocationSearch'
 

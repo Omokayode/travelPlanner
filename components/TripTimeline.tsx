@@ -1,9 +1,8 @@
 'use client'
 
 import { useMemo } from 'react'
-import { Trip, Day } from '@/lib/types'
-import { format, parseISO, differenceInDays } from 'date-fns'
-import Link from 'next/link'
+import { Trip } from '@/lib/types'
+import { format, parseISO } from 'date-fns'
 
 interface Props {
   trip: Trip
@@ -21,8 +20,6 @@ interface Stop {
 }
 
 export default function TripTimeline({ trip }: Props) {
-  const totalDays = trip.days?.length || 1
-
   const stops = useMemo<Stop[]>(() => {
     const result: Stop[] = []
     const seen = new Set<string>()

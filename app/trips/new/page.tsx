@@ -265,7 +265,7 @@ export default function NewTripPage() {
           <div className="space-y-6">
             <div>
               <h2 className="text-2xl font-bold text-white mb-1">Ready to go!</h2>
-              <p className="text-white/40">Here's a summary of your trip.</p>
+              <p className="text-white/40">Here&apos;s a summary of your trip.</p>
             </div>
 
             <div className="tp-card p-5 space-y-3">

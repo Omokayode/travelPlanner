@@ -1,7 +1,7 @@
 // components/LeafletMap.tsx
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, ZoomControl } from 'react-leaflet'
 import L from 'leaflet'
 import { Segment, Stop, TRANSPORT_COLORS, STOP_TYPE_ICONS } from '@/lib/types'

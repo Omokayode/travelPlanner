@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { USER_AGENT } from '@/lib/config'
 import { v4 as uuidv4 } from 'uuid'
 import { StopType } from '@/lib/types'
 
@@ -100,7 +101,7 @@ out body 60;`
       body: query,
       headers: {
         'Content-Type': 'text/plain',
-        'User-Agent': 'TripByJKBLabs/1.0 (travel planner app)',
+        'User-Agent': USER_AGENT,
         'Accept': 'application/json',
       },
     })

@@ -3,7 +3,7 @@
 
 import Link from 'next/link'
 import { format, differenceInDays } from 'date-fns'
-import { Car, Plane, Train, Layers, MapPin, Calendar, Trash2, MoreHorizontal, DollarSign } from 'lucide-react'
+import { Car, Plane, Train, Layers, MapPin, Calendar, Trash2 } from 'lucide-react'
 import { Trip, TripStats } from '@/lib/types'
 import clsx from 'clsx'
 

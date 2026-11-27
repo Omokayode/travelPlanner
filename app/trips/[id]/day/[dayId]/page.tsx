@@ -6,11 +6,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { format, parseISO } from 'date-fns'
 import {
-  ArrowLeft, Plus, Edit2, Trash2, Map, Navigation,
-  Fuel, Clock, DollarSign, CheckCircle2, Circle,
-  ChevronRight, ExternalLink, Car, Plane, Train,
-  Camera, Calendar, Globe, Route, X, Mail,
-  Eye, MapPin, Cloud, Receipt, Loader2, Check
+  ArrowLeft, Plus, Edit2, Trash2, Navigation, CheckCircle2, Circle, ChevronRight, ExternalLink, Calendar, Globe, Route, X, Mail, Loader2, Check
 } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import MapView from '@/components/MapView'
@@ -21,7 +17,7 @@ import WeatherCard from '@/components/WeatherCard'
 import BudgetPanel from '@/components/BudgetPanel'
 import ImmichPanel from '@/components/ImmichPanel'
 import { getLodgingForDate } from '@/components/LodgingPanel'
-import { Day, Trip, Segment, Activity, Photo, Lodging, TRANSPORT_ICONS, TRANSPORT_COLORS, Stop } from '@/lib/types'
+import { Day, Trip, Segment, Activity, Lodging, TRANSPORT_ICONS, TRANSPORT_COLORS, Stop } from '@/lib/types'
 import { getGoogleMapsUrl, getWazeUrl } from '@/lib/api'
 import clsx from 'clsx'
 
@@ -44,10 +40,7 @@ export default function DayPage() {
 
   const load = async () => {
     try {
-      const [tripRes, tripData] = await Promise.all([
-        fetch(`/api/trips/${tripId}`),
-        fetch(`/api/trips/${tripId}`),
-      ])
+      const tripRes = await fetch(`/api/trips/${tripId}`)
       const t: Trip = await tripRes.json()
       if (!t || !t.days) { router.push(`/trips/${tripId}`); return }
       const d = t.days.find((day: Day) => day.id === dayId)
@@ -115,14 +108,6 @@ export default function DayPage() {
     else if (action === 'update') activities = day.activities.map(a => a.id === act.id ? act : a)
     else activities = day.activities.filter(a => a.id !== act.id)
     await saveDay({ ...day, activities })
-  }
-
-  const handlePhoto = async (photo: Photo | string, action: 'add' | 'delete') => {
-    if (!day) return
-    let photos: Photo[]
-    if (action === 'add') photos = [...(day.photos || []), photo as Photo]
-    else photos = day.photos.filter(p => p.id !== (photo as string))
-    await saveDay({ ...day, photos })
   }
 
   const handleNotesSave = async (notes: string) => {
@@ -571,7 +556,7 @@ function WeatherStrip({ dayDate, lat, lng, locationName }: {
           {locationName && <span className="text-white/30 text-xs truncate">· {locationName}</span>}
         </div>
         <div className="flex gap-2 mt-0.5">
-          {rainy && <span className="text-xs text-blue-400">☔ {weather.precipitation}" rain</span>}
+          {rainy && <span className="text-xs text-blue-400">☔ {weather.precipitation}&quot; rain</span>}
           {hot && <span className="text-xs text-orange-400">🌡️ Hot day</span>}
           {cold && <span className="text-xs text-blue-300">🧥 Cold</span>}
         </div>

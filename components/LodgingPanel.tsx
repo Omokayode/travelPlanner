@@ -5,7 +5,6 @@ import { v4 as uuidv4 } from 'uuid'
 import { Plus, Trash2, Edit2, X, Check, Hotel, MapPin, Mail, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
 import { Lodging, Trip } from '@/lib/types'
 import LocationSearch from './LocationSearch'
-import clsx from 'clsx'
 
 interface Props {
   trip: Trip
@@ -30,11 +29,6 @@ export default function LodgingPanel({ trip, onUpdate }: Props) {
   const [form, setForm] = useState(emptyForm())
   const [saving, setSaving] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
-
-  // Find lodging that covers a given date
-  function getLodgingForDate(date: string): Lodging | undefined {
-    return lodgings.find(l => l.checkIn <= date && date <= l.checkOut)
-  }
 
   const saveLodging = async () => {
     if (!form.name.trim() || !form.location || !form.checkIn || !form.checkOut) return

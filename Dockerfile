@@ -2,14 +2,13 @@ FROM node:22-alpine AS base
 
 FROM base AS deps
 WORKDIR /app
-COPY package*.json ./
-RUN npm install
+COPY package.json package-lock.json ./
+RUN npm ci
 
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npx prisma generate
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
@@ -20,8 +19,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN apk add --no-cache openssl
 
-COPY package*.json ./
-RUN npm install
+# Only the Prisma CLI is needed at runtime (scripts/start.sh runs `prisma migrate deploy`);
+# the app itself runs from the standalone output. Keep in step with package.json.
+RUN npm install --no-save --no-package-lock prisma@5.22.0
 
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/public ./public

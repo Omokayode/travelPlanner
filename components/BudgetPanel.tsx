@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Plus, Trash2, Edit2, X, Check, Camera, Loader2, Receipt, ChevronDown, ChevronUp } from 'lucide-react'
-import { Expense, ExpenseCategory, EXPENSE_CATEGORY_ICONS, EXPENSE_CATEGORY_COLORS, Trip, Segment, Lodging } from '@/lib/types'
+import { Plus, Trash2, Edit2, X, Check, Camera, Loader2, Receipt } from 'lucide-react'
+import { Expense, ExpenseCategory, EXPENSE_CATEGORY_ICONS, EXPENSE_CATEGORY_COLORS, Trip, Lodging } from '@/lib/types'
 import clsx from 'clsx'
 
 interface Props {
