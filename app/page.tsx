@@ -36,31 +36,31 @@ export default function HomePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0b1121]">
+      <div className="min-h-screen bg-base">
         <Navbar />
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+          <Loader2 className="w-8 h-8 text-accent animate-spin" />
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#0b1121]">
+    <div className="min-h-screen bg-base">
       <Navbar />
 
       {trips.length === 0 ? (
         <div className="max-w-2xl mx-auto px-4 py-20 text-center">
           <div className="relative inline-block mb-6">
             <div className="w-20 h-20 rounded-2xl bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center mx-auto">
-              <Globe className="w-10 h-10 text-emerald-500" />
+              <Globe className="w-10 h-10 text-accent" />
             </div>
             <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center">
-              <Sparkles className="w-3 h-3 text-[#0b1121]" />
+              <Sparkles className="w-3 h-3 text-base" />
             </div>
           </div>
-          <h1 className="text-3xl font-bold text-white mb-3">Plan your next adventure</h1>
-          <p className="text-white/50 mb-8 max-w-md mx-auto">
+          <h1 className="text-3xl font-bold text-ink mb-3">Plan your next adventure</h1>
+          <p className="text-ink/50 mb-8 max-w-md mx-auto">
             Trip by JKBLabs maps your road trips, flights & trains — with routes, stops, weather, expenses and packing lists.
           </p>
           <Link
@@ -75,8 +75,8 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto px-4 py-8">
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h1 className="text-2xl font-bold text-white">My Trips</h1>
-              <p className="text-white/40 text-sm mt-1">{trips.length} trip{trips.length !== 1 ? 's' : ''} planned</p>
+              <h1 className="text-2xl font-bold text-ink">My Trips</h1>
+              <p className="text-ink/40 text-sm mt-1">{trips.length} trip{trips.length !== 1 ? 's' : ''} planned</p>
             </div>
             <Link
               href="/trips/new"
@@ -90,19 +90,19 @@ export default function HomePage() {
           {(totalStats.miles > 0 || totalStats.cities > 0) && (
             <div className="grid grid-cols-3 gap-4 mb-8">
               <div className="tp-card p-4 text-center">
-                <Map className="w-5 h-5 text-emerald-500 mx-auto mb-2" />
-                <div className="text-2xl font-bold text-white">{Math.round(totalStats.miles).toLocaleString()}</div>
-                <div className="text-white/40 text-xs mt-0.5">total miles</div>
+                <Map className="w-5 h-5 text-accent mx-auto mb-2" />
+                <div className="text-2xl font-bold text-ink">{Math.round(totalStats.miles).toLocaleString()}</div>
+                <div className="text-ink/40 text-xs mt-0.5">total miles</div>
               </div>
               <div className="tp-card p-4 text-center">
-                <Globe className="w-5 h-5 text-emerald-500 mx-auto mb-2" />
-                <div className="text-2xl font-bold text-white">{totalStats.cities}</div>
-                <div className="text-white/40 text-xs mt-0.5">cities visited</div>
+                <Globe className="w-5 h-5 text-accent mx-auto mb-2" />
+                <div className="text-2xl font-bold text-ink">{totalStats.cities}</div>
+                <div className="text-ink/40 text-xs mt-0.5">cities visited</div>
               </div>
               <div className="tp-card p-4 text-center">
-                <TrendingUp className="w-5 h-5 text-emerald-500 mx-auto mb-2" />
-                <div className="text-2xl font-bold text-white">${Math.round(totalStats.cost).toLocaleString()}</div>
-                <div className="text-white/40 text-xs mt-0.5">total spent</div>
+                <TrendingUp className="w-5 h-5 text-accent mx-auto mb-2" />
+                <div className="text-2xl font-bold text-ink">${Math.round(totalStats.cost).toLocaleString()}</div>
+                <div className="text-ink/40 text-xs mt-0.5">total spent</div>
               </div>
             </div>
           )}

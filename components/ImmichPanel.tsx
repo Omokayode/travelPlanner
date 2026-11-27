@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Loader2, X, ExternalLink, Camera, Settings as SettingsIcon, ImageOff } from 'lucide-react'
+import { Loader2, Camera, Settings as SettingsIcon, ImageOff } from 'lucide-react'
+import Lightbox from '@/components/ui/Lightbox'
 import Link from 'next/link'
 
 interface Album {
@@ -49,7 +50,7 @@ export default function ImmichPanel({ tripId, dayDate, startDate, endDate }: Pro
   const [assets, setAssets] = useState<ImmichAsset[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [lightbox, setLightbox] = useState<ImmichAsset | null>(null)
+  const [lightbox, setLightbox] = useState<number | null>(null)
 
   useEffect(() => {
     fetch('/api/settings')
@@ -110,11 +111,11 @@ export default function ImmichPanel({ tripId, dayDate, startDate, endDate }: Pro
   if (configured === false) {
     return (
       <div className="tp-card p-6 text-center space-y-3">
-        <Camera className="w-10 h-10 text-white/20 mx-auto" />
-        <div className="text-white/60 text-sm">Immich not configured</div>
+        <Camera className="w-10 h-10 text-ink/20 mx-auto" />
+        <div className="text-ink/60 text-sm">Immich not configured</div>
         <Link
           href="/settings"
-          className="inline-flex items-center gap-2 text-emerald-400 text-sm hover:text-emerald-300"
+          className="inline-flex items-center gap-2 text-accent text-sm hover:text-accent"
         >
           <SettingsIcon className="w-4 h-4" /> Go to Settings to connect Immich
         </Link>
@@ -128,9 +129,9 @@ export default function ImmichPanel({ tripId, dayDate, startDate, endDate }: Pro
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <Camera className="w-4 h-4 text-emerald-500 shrink-0" />
-          <span className="text-sm font-semibold text-white">Photos</span>
-          {!loading && assets.length > 0 && <span className="text-xs text-white/40">{assets.length}</span>}
+          <Camera className="w-4 h-4 text-accent shrink-0" />
+          <span className="text-sm font-semibold text-ink">Photos</span>
+          {!loading && assets.length > 0 && <span className="text-xs text-ink/40">{assets.length}</span>}
         </div>
         <div className="flex items-center gap-2">
           {albums.length > 0 && (
@@ -148,22 +149,22 @@ export default function ImmichPanel({ tripId, dayDate, startDate, endDate }: Pro
               ))}
             </select>
           )}
-          <Link href="/settings" className="text-white/30 hover:text-white/60 p-1.5" aria-label="Immich settings">
+          <Link href="/settings" className="text-ink/30 hover:text-ink/60 p-1.5" aria-label="Immich settings">
             <SettingsIcon className="w-3.5 h-3.5" />
           </Link>
         </div>
       </div>
 
-      {error && <div className="text-sm text-red-400 bg-red-500/10 rounded-xl px-3 py-2">{error}</div>}
+      {error && <div className="text-sm text-danger bg-red-500/10 rounded-xl px-3 py-2">{error}</div>}
 
       {(loading || configured === null) && (
-        <div className="flex items-center justify-center py-8 text-white/40">
+        <div className="flex items-center justify-center py-8 text-ink/40">
           <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading…
         </div>
       )}
 
       {!loading && configured && !error && assets.length === 0 && (
-        <div className="text-center py-8 text-white/30">
+        <div className="text-center py-8 text-ink/30">
           <ImageOff className="w-8 h-8 mx-auto mb-2 opacity-30" />
           <div className="text-sm">
             No photos from {range}
@@ -174,11 +175,12 @@ export default function ImmichPanel({ tripId, dayDate, startDate, endDate }: Pro
 
       {!loading && assets.length > 0 && (
         <div className="grid grid-cols-3 gap-2">
-          {assets.map((asset) => (
+          {assets.map((asset, i) => (
             <button
               key={asset.id}
-              onClick={() => setLightbox(asset)}
-              className="aspect-square rounded-xl overflow-hidden border border-white/8 hover:border-emerald-500/40 transition-all group"
+              aria-label={`Open photo ${asset.originalFileName}`}
+              onClick={() => setLightbox(i)}
+              className="aspect-square rounded-xl overflow-hidden border border-ink/8 hover:border-emerald-500/40 transition-all group"
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- served by our own Immich proxy */}
               <img
@@ -195,42 +197,16 @@ export default function ImmichPanel({ tripId, dayDate, startDate, endDate }: Pro
         </div>
       )}
 
-      {lightbox && (
-        <div
-          className="fixed inset-0 bg-black/95 z-[1000] flex flex-col items-center justify-center p-4"
-          onClick={() => setLightbox(null)}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={lightbox.thumbUrl}
-            alt={lightbox.originalFileName}
-            className="max-w-full max-h-[80vh] rounded-xl object-contain"
-            onClick={(e) => e.stopPropagation()}
-          />
-          <div className="mt-4 text-center space-y-1">
-            {lightbox.takenAt && (
-              <div className="text-white/50 text-sm">{lightbox.takenAt.replace('T', ' ').slice(0, 16)}</div>
-            )}
-            {lightbox.city && <div className="text-white/40 text-xs">{lightbox.city}</div>}
-            <a
-              href={lightbox.fullUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-emerald-400 text-xs hover:text-emerald-300 mt-2"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <ExternalLink className="w-3 h-3" /> Full resolution
-            </a>
-          </div>
-          <button
-            onClick={() => setLightbox(null)}
-            className="absolute top-4 right-4 text-white/60 hover:text-white"
-            aria-label="Close"
-          >
-            <X className="w-8 h-8" />
-          </button>
-        </div>
-      )}
+      <Lightbox
+        items={assets.map((a) => ({
+          src: a.thumbUrl,
+          alt: a.originalFileName,
+          href: a.fullUrl,
+          caption: [a.takenAt?.replace('T', ' ').slice(0, 16), a.city].filter(Boolean).join(' · '),
+        }))}
+        index={lightbox}
+        onIndex={setLightbox}
+      />
     </div>
   )
 }

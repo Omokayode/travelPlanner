@@ -10,13 +10,13 @@ import LocationSearch from './LocationSearch'
 import clsx from 'clsx'
 
 const ACTIVITY_TYPES = [
-  { type: 'food', label: '🍽 Food', color: 'text-orange-400' },
-  { type: 'attraction', label: '🎡 Attraction', color: 'text-purple-400' },
-  { type: 'accommodation', label: '🛏 Hotel', color: 'text-blue-400' },
-  { type: 'outdoor', label: '🥾 Outdoor', color: 'text-green-400' },
+  { type: 'food', label: '🍽 Food', color: 'text-warn' },
+  { type: 'attraction', label: '🎡 Attraction', color: 'text-special' },
+  { type: 'accommodation', label: '🛏 Hotel', color: 'text-info' },
+  { type: 'outdoor', label: '🥾 Outdoor', color: 'text-ok' },
   { type: 'shopping', label: '🛍 Shopping', color: 'text-pink-400' },
   { type: 'nightlife', label: '🎵 Nightlife', color: 'text-indigo-400' },
-  { type: 'other', label: '📌 Other', color: 'text-gray-400' },
+  { type: 'other', label: '📌 Other', color: 'text-ink-2' },
 ] as const
 
 interface ActivityPanelProps {
@@ -123,42 +123,42 @@ export default function ActivityPanel({ activities, cityName, onAdd, onUpdate, o
               'flex items-start gap-3 p-3 rounded-xl border transition-all',
               activity.visited
                 ? 'bg-green-500/5 border-green-500/15 opacity-70'
-                : 'bg-[#111827] border-[#1e293b] hover:border-[#2d3f5a]'
+                : 'bg-surface border-line hover:border-line-strong'
             )}>
-            <div className="w-8 h-8 rounded-lg bg-[#1a2235] flex items-center justify-center shrink-0 text-sm">
+            <div className="w-8 h-8 rounded-lg bg-card flex items-center justify-center shrink-0 text-sm">
               {tc?.label.split(' ')[0]}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <span className="text-sm font-medium text-[#f1f5f9]">{activity.name}</span>
-                  {activity.isHighlight && <Star className="w-3 h-3 text-emerald-500 inline ml-1" />}
+                  <span className="text-sm font-medium text-ink">{activity.name}</span>
+                  {activity.isHighlight && <Star className="w-3 h-3 text-accent inline ml-1" />}
                   <div className="flex items-center gap-2 mt-0.5">
-                    {activity.time && <span className="text-xs text-[#475569]">{activity.time}</span>}
-                    {!!activity.duration && <span className="text-xs text-[#475569]">{activity.duration}min</span>}
-                    {activity.cost !== undefined && <span className="text-xs text-green-400">${activity.cost}</span>}
+                    {activity.time && <span className="text-xs text-ink-4">{activity.time}</span>}
+                    {!!activity.duration && <span className="text-xs text-ink-4">{activity.duration}min</span>}
+                    {activity.cost !== undefined && <span className="text-xs text-ok">${activity.cost}</span>}
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <button onClick={() => onUpdate({ ...activity, visited: !activity.visited })}
                     className={clsx('p-1 rounded transition-colors',
-                      activity.visited ? 'text-green-400 bg-green-500/10' : 'text-[#475569] hover:text-green-400')}>
+                      activity.visited ? 'text-ok bg-green-500/10' : 'text-ink-4 hover:text-ok')}>
                     <Check className="w-3.5 h-3.5" />
                   </button>
                   <button onClick={() => startEdit(activity)}
-                    className="p-1 rounded text-[#475569] hover:text-emerald-400 transition-colors">
+                    className="p-1 rounded text-ink-4 hover:text-accent transition-colors">
                     <Edit2 className="w-3.5 h-3.5" />
                   </button>
                   <button onClick={() => onDelete(activity.id)}
-                    className="p-1 rounded text-[#475569] hover:text-red-400 transition-colors">
+                    className="p-1 rounded text-ink-4 hover:text-danger transition-colors">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
-              {activity.notes && <div className="text-xs text-[#64748b] mt-1 italic">{activity.notes}</div>}
+              {activity.notes && <div className="text-xs text-ink-3 mt-1 italic">{activity.notes}</div>}
               {activity.website && (
                 <a href={activity.website} target="_blank" rel="noopener noreferrer"
-                  className="text-xs text-emerald-500 hover:text-emerald-400 flex items-center gap-0.5 mt-0.5">
+                  className="text-xs text-accent hover:text-accent flex items-center gap-0.5 mt-0.5">
                   <Globe className="w-3 h-3" />{new URL(activity.website).hostname}
                 </a>
               )}
@@ -170,7 +170,7 @@ export default function ActivityPanel({ activities, cityName, onAdd, onUpdate, o
       {/* AI suggestions */}
       {suggestions.length > 0 && (
         <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3 space-y-2">
-          <div className="text-xs font-medium text-emerald-400 flex items-center gap-1.5">
+          <div className="text-xs font-medium text-accent flex items-center gap-1.5">
             <Sparkles className="w-3.5 h-3.5" />
             Suggestions for {cityName}
           </div>
@@ -178,11 +178,11 @@ export default function ActivityPanel({ activities, cityName, onAdd, onUpdate, o
             {suggestions.map((s, i) => (
               <div key={i} className="flex items-center justify-between gap-2 py-1">
                 <div>
-                  <div className="text-sm text-[#f1f5f9]">{s.name}</div>
-                  {s.notes && <div className="text-xs text-[#475569]">{s.notes}</div>}
+                  <div className="text-sm text-ink">{s.name}</div>
+                  {s.notes && <div className="text-xs text-ink-4">{s.notes}</div>}
                 </div>
                 <button onClick={() => addSuggestion(s)}
-                  className="shrink-0 p-1 rounded-lg bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 transition-colors">
+                  className="shrink-0 p-1 rounded-lg bg-emerald-500/15 text-accent hover:bg-emerald-500/25 transition-colors">
                   <Plus className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -193,10 +193,10 @@ export default function ActivityPanel({ activities, cityName, onAdd, onUpdate, o
 
       {/* Add form */}
       {showForm && (
-        <div className="bg-[#111827] rounded-xl p-4 space-y-3 border border-[#2d3f5a]">
+        <div className="bg-surface rounded-xl p-4 space-y-3 border border-line-strong">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-[#94a3b8]">{editingId ? 'Edit Activity' : 'Add Activity'}</span>
-            <button onClick={() => { setShowForm(false); resetForm() }} className="text-[#475569] hover:text-[#94a3b8]">
+            <span className="text-sm font-medium text-ink-2">{editingId ? 'Edit Activity' : 'Add Activity'}</span>
+            <button onClick={() => { setShowForm(false); resetForm() }} className="text-ink-4 hover:text-ink-2">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -209,7 +209,7 @@ export default function ActivityPanel({ activities, cityName, onAdd, onUpdate, o
             {ACTIVITY_TYPES.map(({ type: t, label }) => (
               <button key={t} onClick={() => setType(t as Activity['type'])}
                 className={clsx('py-1.5 rounded-lg text-xs border transition-all',
-                  type === t ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400' : 'bg-[#0b1121] border-[#1e293b] text-[#64748b]')}>
+                  type === t ? 'bg-emerald-500/15 border-emerald-500/40 text-accent' : 'bg-base border-line text-ink-3')}>
                 {label}
               </button>
             ))}

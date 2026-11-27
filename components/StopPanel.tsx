@@ -136,15 +136,15 @@ export default function StopPanel({ segment, vehicle, onUpdate, onUpdateSegment 
   return (
     <div className="tp-card">
       <button onClick={() => setExpanded(e => !e)} className="w-full flex items-center justify-between">
-        <h4 className="text-sm font-semibold text-[#f1f5f9] flex items-center gap-2">
-          <Map className="w-4 h-4 text-emerald-500" />
+        <h4 className="text-sm font-semibold text-ink flex items-center gap-2">
+          <Map className="w-4 h-4 text-accent" />
           Stops & Points of Interest
           {stops.length > 0 && (
-            <span className="badge bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">{stops.length}</span>
+            <span className="badge bg-emerald-500/15 text-accent border border-emerald-500/20">{stops.length}</span>
           )}
-          {recalcing && <RefreshCw className="w-3.5 h-3.5 text-emerald-400 animate-spin ml-1" />}
+          {recalcing && <RefreshCw className="w-3.5 h-3.5 text-accent animate-spin ml-1" />}
         </h4>
-        {expanded ? <ChevronUp className="w-4 h-4 text-[#64748b]" /> : <ChevronDown className="w-4 h-4 text-[#64748b]" />}
+        {expanded ? <ChevronUp className="w-4 h-4 text-ink-3" /> : <ChevronDown className="w-4 h-4 text-ink-3" />}
       </button>
 
       {expanded && (
@@ -159,8 +159,8 @@ export default function StopPanel({ segment, vehicle, onUpdate, onUpdateSegment 
                   className={clsx(
                     'flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-all',
                     selectedPrefs.includes(type)
-                      ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
-                      : 'bg-[#111827] border-[#1e293b] text-[#64748b] hover:border-[#2d3f5a]'
+                      ? 'bg-emerald-500/20 border-emerald-500/40 text-accent'
+                      : 'bg-surface border-line text-ink-3 hover:border-line-strong'
                   )}>
                   {STOP_TYPE_ICONS[type]} {label}
                 </button>
@@ -178,29 +178,29 @@ export default function StopPanel({ segment, vehicle, onUpdate, onUpdateSegment 
           {suggestions.length > 0 && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <div className="text-xs font-medium text-white/40 uppercase tracking-wide">
+                <div className="text-xs font-medium text-ink/40 uppercase tracking-wide">
                   {suggestions.length} suggestions — tap + to add
                 </div>
-                <button onClick={() => setSuggestions([])} className="text-xs text-white/30 hover:text-white/60">
+                <button onClick={() => setSuggestions([])} className="text-xs text-ink/30 hover:text-ink/60">
                   Clear all
                 </button>
               </div>
               {suggestions.map(stop => (
                 <div key={stop.id}
-                  className="flex items-center gap-2 p-2.5 rounded-lg border border-dashed border-white/10 bg-white/2 group">
+                  className="flex items-center gap-2 p-2.5 rounded-lg border border-dashed border-ink/10 bg-ink/2 group">
                   <span className="text-base leading-none shrink-0">{STOP_TYPE_ICONS[stop.type]}</span>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-white/70 truncate">{stop.name}</div>
-                    <div className="text-xs text-white/30 capitalize">{stop.type.replace('_', ' ')}</div>
+                    <div className="text-sm font-medium text-ink/70 truncate">{stop.name}</div>
+                    <div className="text-xs text-ink/30 capitalize">{stop.type.replace('_', ' ')}</div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <button onClick={() => addSuggestion(stop)}
-                      className="p-1.5 rounded-lg bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/30 transition-colors"
+                      className="p-1.5 rounded-lg bg-emerald-500/15 text-accent hover:bg-emerald-500/30 transition-colors"
                       title="Add to trip">
                       <Plus className="w-3.5 h-3.5" />
                     </button>
                     <button onClick={() => dismissSuggestion(stop.id)}
-                      className="p-1.5 rounded-lg text-white/20 hover:text-white/50 transition-colors"
+                      className="p-1.5 rounded-lg text-ink/20 hover:text-ink/50 transition-colors"
                       title="Dismiss">
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -214,28 +214,28 @@ export default function StopPanel({ segment, vehicle, onUpdate, onUpdateSegment 
           {stops.length > 0 && (
             <div className="space-y-2">
               {suggestions.length > 0 && (
-                <div className="text-xs font-medium text-white/40 uppercase tracking-wide">Added to trip</div>
+                <div className="text-xs font-medium text-ink/40 uppercase tracking-wide">Added to trip</div>
               )}
               {stops.map(stop => (
                 <div key={stop.id}
                   className={clsx('flex items-start gap-2 p-2.5 rounded-lg border transition-all',
-                    stop.visited ? 'bg-green-500/5 border-green-500/20 opacity-60' : 'bg-[#111827] border-[#1e293b]')}>
+                    stop.visited ? 'bg-green-500/5 border-green-500/20 opacity-60' : 'bg-surface border-line')}>
                   <span className="text-base leading-none mt-0.5">{STOP_TYPE_ICONS[stop.type]}</span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-medium text-[#f1f5f9] truncate">{stop.name}</span>
+                      <span className="text-sm font-medium text-ink truncate">{stop.name}</span>
                     </div>
-                    <div className="text-xs text-[#475569] capitalize">{stop.type.replace('_', ' ')}</div>
-                    {stop.notes && <div className="text-xs text-[#64748b] mt-0.5 italic">{stop.notes}</div>}
+                    <div className="text-xs text-ink-4 capitalize">{stop.type.replace('_', ' ')}</div>
+                    {stop.notes && <div className="text-xs text-ink-3 mt-0.5 italic">{stop.notes}</div>}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <button onClick={() => toggleVisited(stop.id)}
                       className={clsx('p-1 rounded transition-colors',
-                        stop.visited ? 'text-green-400 bg-green-500/10' : 'text-[#475569] hover:text-green-400')}>
+                        stop.visited ? 'text-ok bg-green-500/10' : 'text-ink-4 hover:text-ok')}>
                       <Check className="w-3.5 h-3.5" />
                     </button>
                     <button onClick={() => removeStop(stop.id)}
-                      className="p-1 rounded text-[#475569] hover:text-red-400 transition-colors">
+                      className="p-1 rounded text-ink-4 hover:text-danger transition-colors">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -246,7 +246,7 @@ export default function StopPanel({ segment, vehicle, onUpdate, onUpdateSegment 
 
           {/* Manual stop add */}
           {addingManual ? (
-            <div className="bg-[#111827] rounded-xl p-3 space-y-3">
+            <div className="bg-surface rounded-xl p-3 space-y-3">
               <LocationSearch label="Location" onChange={setManualLoc} placeholder="Search for a stop…" />
               <div>
                 <label className="tp-label">Type</label>

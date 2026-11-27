@@ -8,25 +8,24 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      // Theme tokens (app/globals.css sets the values for light and dark). Use these, not hex.
       colors: {
-        navy: {
-          50: '#e8eaf2',
-          100: '#c5c9df',
-          200: '#9ea5ca',
-          300: '#7781b4',
-          400: '#5a64a3',
-          500: '#3d4893',
-          600: '#2e3578',
-          700: '#1f2259',
-          800: '#111435',
-          900: '#0b1121',
-          950: '#060a17',
-        },
-        amber: {
-          400: '#fbbf24',
-          500: '#f59e0b',
-          600: '#d97706',
-        },
+        'base': 'rgb(var(--base) / <alpha-value>)',
+        'surface': 'rgb(var(--surface) / <alpha-value>)',
+        'card': 'rgb(var(--card) / <alpha-value>)',
+        'card-hover': 'rgb(var(--card-hover) / <alpha-value>)',
+        'line': 'rgb(var(--line) / <alpha-value>)',
+        'line-strong': 'rgb(var(--line-strong) / <alpha-value>)',
+        'ink': 'rgb(var(--ink) / <alpha-value>)',
+        'ink-2': 'rgb(var(--ink-2) / <alpha-value>)',
+        'ink-3': 'rgb(var(--ink-3) / <alpha-value>)',
+        'ink-4': 'rgb(var(--ink-4) / <alpha-value>)',
+        'accent': 'rgb(var(--accent) / <alpha-value>)',
+        'ok': 'rgb(var(--ok) / <alpha-value>)',
+        'danger': 'rgb(var(--danger) / <alpha-value>)',
+        'info': 'rgb(var(--info) / <alpha-value>)',
+        'warn': 'rgb(var(--warn) / <alpha-value>)',
+        'special': 'rgb(var(--special) / <alpha-value>)',
       },
       fontFamily: {
         display: ['var(--font-display)', 'serif'],

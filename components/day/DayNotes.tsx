@@ -9,7 +9,7 @@ export default function DayNotes({ notes, onSave }: { notes: string; onSave: (n:
 
   return (
     <div className="space-y-2">
-      <label className="text-white/50 text-xs uppercase tracking-wide">Day Notes</label>
+      <label className="text-ink/50 text-xs uppercase tracking-wide">Day Notes</label>
       <textarea
         value={value}
         onChange={e => { setValue(e.target.value); setSaved(false) }}

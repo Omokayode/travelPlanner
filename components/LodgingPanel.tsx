@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { Plus, Trash2, Edit2, X, Check, Hotel, MapPin, Mail, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
 import { GeoLocation, Lodging, Trip } from '@/lib/types'
 import LocationSearch from './LocationSearch'
+import { toast } from '@/lib/client'
 
 interface Props {
   trip: Trip
@@ -36,7 +37,7 @@ export default function LodgingPanel({ trip, onUpdate }: Props) {
   const saveLodging = async () => {
     const location = form.location
     if (!form.name.trim() || !location || !form.checkIn || !form.checkOut) return
-    if (form.checkOut < form.checkIn) { alert('Check-out must be on or after check-in.'); return }
+    if (form.checkOut < form.checkIn) { toast.error('Check-out must be on or after check-in.'); return }
     setSaving(true)
     const entry = { ...form, location }
     const updated = editingId
@@ -69,7 +70,7 @@ export default function LodgingPanel({ trip, onUpdate }: Props) {
       body: JSON.stringify({ lodgings: updated }), // only what changed
     }).catch(() => null)
     if (!res?.ok) {
-      alert((await res?.json().catch(() => null))?.error || 'Could not save lodging')
+      toast.error((await res?.json().catch(() => null))?.error || 'Could not save lodging')
       return false
     }
     onUpdate(updated)
@@ -85,7 +86,7 @@ export default function LodgingPanel({ trip, onUpdate }: Props) {
     <div className="space-y-4">
       {/* Add button */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wide">Bases & Lodging</h3>
+        <h3 className="text-sm font-semibold text-ink/50 uppercase tracking-wide">Bases & Lodging</h3>
         <button onClick={() => { setShowForm(true); setEditingId(null); setForm(emptyForm()) }}
           className="tp-btn text-xs py-1.5">
           <Plus className="w-3.5 h-3.5" /> Add
@@ -95,9 +96,9 @@ export default function LodgingPanel({ trip, onUpdate }: Props) {
       {/* Empty state */}
       {lodgings.length === 0 && !showForm && (
         <div className="tp-card text-center py-8 border-dashed">
-          <Hotel className="w-8 h-8 text-white/10 mx-auto mb-2" />
-          <div className="text-sm text-white/40">No lodging added yet</div>
-          <div className="text-xs text-white/20 mt-1">Add hotels, rentals, or campgrounds as trip bases</div>
+          <Hotel className="w-8 h-8 text-ink/10 mx-auto mb-2" />
+          <div className="text-sm text-ink/40">No lodging added yet</div>
+          <div className="text-xs text-ink/20 mt-1">Add hotels, rentals, or campgrounds as trip bases</div>
         </div>
       )}
 
@@ -105,8 +106,8 @@ export default function LodgingPanel({ trip, onUpdate }: Props) {
       {showForm && (
         <div className="tp-card p-5 space-y-4 border border-emerald-500/20">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-semibold text-emerald-400">{editingId ? 'Edit' : 'Add'} lodging</h4>
-            <button onClick={() => { setShowForm(false); setEditingId(null) }} className="text-white/30 hover:text-white/60">
+            <h4 className="text-sm font-semibold text-accent">{editingId ? 'Edit' : 'Add'} lodging</h4>
+            <button onClick={() => { setShowForm(false); setEditingId(null) }} className="text-ink/30 hover:text-ink/60">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -119,13 +120,13 @@ export default function LodgingPanel({ trip, onUpdate }: Props) {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-white/50 text-xs mb-1 block">Check-in</label>
+              <label className="text-ink/50 text-xs mb-1 block">Check-in</label>
               <input type="date" className="tp-input w-full" value={form.checkIn}
                 min={trip.startDate} max={trip.endDate}
                 onChange={e => setForm(f => ({ ...f, checkIn: e.target.value }))} />
             </div>
             <div>
-              <label className="text-white/50 text-xs mb-1 block">Check-out</label>
+              <label className="text-ink/50 text-xs mb-1 block">Check-out</label>
               <input type="date" className="tp-input w-full" value={form.checkOut}
                 min={form.checkIn || trip.startDate} max={trip.endDate}
                 onChange={e => setForm(f => ({ ...f, checkOut: e.target.value }))} />
@@ -134,7 +135,7 @@ export default function LodgingPanel({ trip, onUpdate }: Props) {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm">$</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/30 text-sm">$</span>
               <input type="number" className="tp-input pl-7 w-full" placeholder="Total cost"
                 value={form.cost ?? ''} onChange={e => setForm(f => ({ ...f, cost: e.target.value ? parseFloat(e.target.value) : undefined }))} />
             </div>
@@ -146,7 +147,7 @@ export default function LodgingPanel({ trip, onUpdate }: Props) {
             value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
 
           <div>
-            <label className="text-white/50 text-xs mb-1 block">Confirmation email (paste here)</label>
+            <label className="text-ink/50 text-xs mb-1 block">Confirmation email (paste here)</label>
             <textarea className="tp-input w-full resize-none font-mono text-xs" rows={3}
               placeholder="Paste confirmation text…"
               value={form.confirmationText}
@@ -155,7 +156,7 @@ export default function LodgingPanel({ trip, onUpdate }: Props) {
 
           <div className="flex gap-2 justify-end">
             <button onClick={() => { setShowForm(false); setEditingId(null) }}
-              className="px-4 py-2 text-sm text-white/50 hover:text-white/80">Cancel</button>
+              className="px-4 py-2 text-sm text-ink/50 hover:text-ink/80">Cancel</button>
             <button onClick={saveLodging}
               disabled={!form.name.trim() || !form.location || !form.checkIn || !form.checkOut || saving}
               className="tp-btn text-sm flex items-center gap-2 disabled:opacity-40">
@@ -177,8 +178,8 @@ export default function LodgingPanel({ trip, onUpdate }: Props) {
                 🏨
               </div>
               <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : l.id)}>
-                <div className="text-white/90 font-medium text-sm">{l.name}</div>
-                <div className="text-white/40 text-xs flex items-center gap-1.5 mt-0.5">
+                <div className="text-ink/90 font-medium text-sm">{l.name}</div>
+                <div className="text-ink/40 text-xs flex items-center gap-1.5 mt-0.5">
                   <MapPin className="w-3 h-3" />
                   {l.location?.city || l.location?.name}
                   <span className="opacity-40">·</span>
@@ -186,33 +187,33 @@ export default function LodgingPanel({ trip, onUpdate }: Props) {
                   <span className="opacity-40">·</span>
                   {n} night{n !== 1 ? 's' : ''}
                 </div>
-                {!!l.cost && <div className="text-emerald-400 text-xs mt-0.5">${l.cost.toFixed(2)}</div>}
+                {!!l.cost && <div className="text-accent text-xs mt-0.5">${l.cost.toFixed(2)}</div>}
               </div>
               <div className="flex items-center gap-1 shrink-0">
-                <button onClick={() => startEdit(l)} className="p-1.5 text-white/30 hover:text-emerald-400">
+                <button onClick={() => startEdit(l)} className="p-1.5 text-ink/30 hover:text-accent">
                   <Edit2 className="w-3.5 h-3.5" />
                 </button>
-                <button onClick={() => deleteLodging(l.id)} className="p-1.5 text-white/30 hover:text-red-400">
+                <button onClick={() => deleteLodging(l.id)} className="p-1.5 text-ink/30 hover:text-danger">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
-                <button onClick={() => setExpandedId(isExpanded ? null : l.id)} className="p-1.5 text-white/30">
+                <button onClick={() => setExpandedId(isExpanded ? null : l.id)} className="p-1.5 text-ink/30">
                   {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                 </button>
               </div>
             </div>
 
             {isExpanded && (
-              <div className="px-4 pb-4 pt-0 border-t border-white/6 space-y-2">
+              <div className="px-4 pb-4 pt-0 border-t border-ink/6 space-y-2">
                 {l.bookingRef && (
-                  <div className="text-xs text-white/40">Ref: <span className="text-white/70 font-mono">{l.bookingRef}</span></div>
+                  <div className="text-xs text-ink/40">Ref: <span className="text-ink/70 font-mono">{l.bookingRef}</span></div>
                 )}
-                {l.notes && <div className="text-xs text-white/50 italic">{l.notes}</div>}
+                {l.notes && <div className="text-xs text-ink/50 italic">{l.notes}</div>}
                 {l.confirmationText && (
                   <details className="mt-2">
-                    <summary className="text-xs text-emerald-400/60 cursor-pointer flex items-center gap-1">
+                    <summary className="text-xs text-accent/60 cursor-pointer flex items-center gap-1">
                       <Mail className="w-3 h-3" /> View confirmation
                     </summary>
-                    <pre className="mt-2 text-xs text-white/40 font-mono whitespace-pre-wrap bg-white/3 rounded-lg p-3 max-h-40 overflow-y-auto">
+                    <pre className="mt-2 text-xs text-ink/40 font-mono whitespace-pre-wrap bg-ink/3 rounded-lg p-3 max-h-40 overflow-y-auto">
                       {l.confirmationText}
                     </pre>
                   </details>

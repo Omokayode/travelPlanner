@@ -38,14 +38,14 @@ function LoginForm() {
     <form onSubmit={submit} className="tp-card w-full max-w-sm p-6 space-y-4">
       <div className="flex items-center gap-2.5">
         <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center">
-          <Compass className="w-4 h-4 text-white" />
+          <Compass className="w-4 h-4 text-ink" />
         </div>
-        <span className="font-display text-xl font-semibold text-[#f1f5f9]">
-          Trip by <span className="text-emerald-500">JKBLabs</span>
+        <span className="font-display text-xl font-semibold text-ink">
+          Trip by <span className="text-accent">JKBLabs</span>
         </span>
       </div>
       <label className="block">
-        <span className="text-white/50 text-xs mb-1 block">Password</span>
+        <span className="text-ink/50 text-xs mb-1 block">Password</span>
         <input
           type="password"
           autoFocus
@@ -55,7 +55,7 @@ function LoginForm() {
           onChange={(e) => setPassword(e.target.value)}
         />
       </label>
-      {error && <div className="text-sm text-red-400 bg-red-500/10 rounded-xl px-3 py-2">{error}</div>}
+      {error && <div className="text-sm text-danger bg-red-500/10 rounded-xl px-3 py-2">{error}</div>}
       <button
         type="submit"
         disabled={busy || !password}
@@ -69,7 +69,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen bg-[#0b1121] flex items-center justify-center px-4">
+    <div className="min-h-screen bg-base flex items-center justify-center px-4">
       <Suspense>
         <LoginForm />
       </Suspense>

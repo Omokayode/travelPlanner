@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { api, reportError } from '@/lib/client'
+import { api, reportError, toast } from '@/lib/client'
+import Lightbox from '@/components/ui/Lightbox'
 import { Plus, Trash2, Edit2, X, Check, Camera, Loader2, Receipt } from 'lucide-react'
 import { Expense, ExpenseCategory, EXPENSE_CATEGORY_ICONS, EXPENSE_CATEGORY_COLORS, Trip } from '@/lib/types'
 import { tripStats } from '@/lib/domain/trip'
@@ -136,7 +137,7 @@ export default function BudgetPanel({ tripId, trip, filterDayId }: Props) {
   const handleReceipt = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 3 * 1024 * 1024) { alert('Receipt must be under 3MB'); return }
+    if (file.size > 3 * 1024 * 1024) { toast.error('The receipt must be under 3 MB'); return }
     const reader = new FileReader()
     reader.onload = ev => setForm(f => ({ ...f, receipt: ev.target?.result as string }))
     reader.readAsDataURL(file)
@@ -181,7 +182,7 @@ export default function BudgetPanel({ tripId, trip, filterDayId }: Props) {
   }
 
   if (loading) return (
-    <div className="flex items-center justify-center py-12 text-white/40">
+    <div className="flex items-center justify-center py-12 text-ink/40">
       <Loader2 className="w-5 h-5 animate-spin mr-2" />Loading budget…
     </div>
   )
@@ -189,11 +190,11 @@ export default function BudgetPanel({ tripId, trip, filterDayId }: Props) {
   return (
     <div className="space-y-4">
       {/* Mode toggle */}
-      <div className="flex gap-1 p-1 bg-white/5 rounded-xl w-fit">
+      <div className="flex gap-1 p-1 bg-ink/5 rounded-xl w-fit">
         {(['proposed', 'actual'] as const).map(m => (
           <button key={m} onClick={() => setMode(m)}
             className={clsx('px-4 py-2 rounded-lg text-sm font-medium transition-all',
-              mode === m ? 'bg-emerald-500 text-white' : 'text-white/50 hover:text-white/80')}>
+              mode === m ? 'bg-emerald-500 text-white' : 'text-ink/50 hover:text-ink/80')}>
             {m === 'proposed' ? '📋 Planned' : '🧾 Actual'}
           </button>
         ))}
@@ -202,16 +203,16 @@ export default function BudgetPanel({ tripId, trip, filterDayId }: Props) {
       {/* Summary bar */}
       <div className="tp-card p-4 grid grid-cols-3 gap-4 text-center">
         <div>
-          <div className="text-xs text-white/40 mb-1">Planned</div>
-          <div className="text-xl font-semibold text-white">${totalProposed.toFixed(2)}</div>
+          <div className="text-xs text-ink/40 mb-1">Planned</div>
+          <div className="text-xl font-semibold text-ink">${totalProposed.toFixed(2)}</div>
         </div>
         <div>
-          <div className="text-xs text-white/40 mb-1">Actual</div>
-          <div className="text-xl font-semibold text-white">${totalActual.toFixed(2)}</div>
+          <div className="text-xs text-ink/40 mb-1">Actual</div>
+          <div className="text-xl font-semibold text-ink">${totalActual.toFixed(2)}</div>
         </div>
         <div>
-          <div className="text-xs text-white/40 mb-1">{diff >= 0 ? 'Over' : 'Under'}</div>
-          <div className={clsx('text-xl font-semibold', diff > 0 ? 'text-red-400' : 'text-green-400')}>
+          <div className="text-xs text-ink/40 mb-1">{diff >= 0 ? 'Over' : 'Under'}</div>
+          <div className={clsx('text-xl font-semibold', diff > 0 ? 'text-danger' : 'text-ok')}>
             {diff > 0 ? '+' : ''}{diff.toFixed(2)}
           </div>
         </div>
@@ -221,31 +222,31 @@ export default function BudgetPanel({ tripId, trip, filterDayId }: Props) {
       {mode === 'proposed' && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium text-white/50 uppercase tracking-wide">Planned Budget</h3>
+            <h3 className="text-sm font-medium text-ink/50 uppercase tracking-wide">Planned Budget</h3>
             <button onClick={() => setShowAddProposed(true)}
               className="tp-btn text-xs py-1.5"><Plus className="w-3.5 h-3.5" /> Add line item</button>
           </div>
 
           {/* Auto-derived items */}
           {proposedItems.filter(i => i.source !== 'manual').length > 0 && (
-            <div className="text-xs text-white/30 flex items-center gap-1.5 mb-1">
+            <div className="text-xs text-ink/30 flex items-center gap-1.5 mb-1">
               ⚡ Auto-calculated from your routes and lodging
             </div>
           )}
 
           {proposedItems.map(item => (
             <div key={item.id} className={clsx('tp-card flex items-center gap-3 p-3',
-              item.source !== 'manual' && 'border-white/5 bg-white/2')}>
+              item.source !== 'manual' && 'border-ink/5 bg-ink/2')}>
               <span className="text-lg">{EXPENSE_CATEGORY_ICONS[item.category]}</span>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-white/80 truncate">{item.label}</div>
-                <div className="text-xs text-white/30">{CATEGORY_LABELS[item.category]}
-                  {item.source !== 'manual' && <span className="ml-1 text-emerald-400/50">· auto</span>}
+                <div className="text-sm font-medium text-ink/80 truncate">{item.label}</div>
+                <div className="text-xs text-ink/30">{CATEGORY_LABELS[item.category]}
+                  {item.source !== 'manual' && <span className="ml-1 text-accent/50">· auto</span>}
                 </div>
               </div>
-              <div className="text-white font-medium">${item.amount.toFixed(2)}</div>
+              <div className="text-ink font-medium">${item.amount.toFixed(2)}</div>
               {item.source === 'manual' && (
-                <button onClick={() => removeProposedItem(item.id)} className="text-white/20 hover:text-red-400">
+                <button onClick={() => removeProposedItem(item.id)} className="text-ink/20 hover:text-danger">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               )}
@@ -253,16 +254,16 @@ export default function BudgetPanel({ tripId, trip, filterDayId }: Props) {
           ))}
 
           {proposedItems.length === 0 && (
-            <div className="tp-card text-center py-8 text-white/30 border-dashed text-sm">
+            <div className="tp-card text-center py-8 text-ink/30 border-dashed text-sm">
               No planned budget yet. Add items or complete route segments to auto-populate.
             </div>
           )}
 
           {/* Total proposed */}
           {proposedItems.length > 0 && (
-            <div className="flex justify-between items-center pt-2 border-t border-white/8 px-1">
-              <span className="text-white/50 text-sm">Total planned</span>
-              <span className="text-white font-semibold">${totalProposed.toFixed(2)}</span>
+            <div className="flex justify-between items-center pt-2 border-t border-ink/8 px-1">
+              <span className="text-ink/50 text-sm">Total planned</span>
+              <span className="text-ink font-semibold">${totalProposed.toFixed(2)}</span>
             </div>
           )}
 
@@ -270,8 +271,8 @@ export default function BudgetPanel({ tripId, trip, filterDayId }: Props) {
           {showAddProposed && (
             <div className="tp-card p-4 space-y-3 border border-emerald-500/20">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-emerald-400">Add budget line</span>
-                <button onClick={() => setShowAddProposed(false)} className="text-white/30 hover:text-white/60">
+                <span className="text-sm font-medium text-accent">Add budget line</span>
+                <button onClick={() => setShowAddProposed(false)} className="text-ink/30 hover:text-ink/60">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -279,7 +280,7 @@ export default function BudgetPanel({ tripId, trip, filterDayId }: Props) {
                 value={newProposed.label} onChange={e => setNewProposed(p => ({ ...p, label: e.target.value }))} />
               <div className="grid grid-cols-2 gap-3">
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/30 text-sm">$</span>
                   <input type="number" className="tp-input pl-7 w-full" placeholder="0.00"
                     value={newProposed.amount} onChange={e => setNewProposed(p => ({ ...p, amount: e.target.value }))} />
                 </div>
@@ -289,7 +290,7 @@ export default function BudgetPanel({ tripId, trip, filterDayId }: Props) {
                 </select>
               </div>
               <div className="flex gap-2 justify-end">
-                <button onClick={() => setShowAddProposed(false)} className="px-4 py-2 text-sm text-white/50">Cancel</button>
+                <button onClick={() => setShowAddProposed(false)} className="px-4 py-2 text-sm text-ink/50">Cancel</button>
                 <button onClick={addProposedItem} disabled={!newProposed.label || !newProposed.amount}
                   className="tp-btn text-sm disabled:opacity-40">Add</button>
               </div>
@@ -302,7 +303,7 @@ export default function BudgetPanel({ tripId, trip, filterDayId }: Props) {
       {mode === 'actual' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium text-white/50 uppercase tracking-wide">Actual Expenses</h3>
+            <h3 className="text-sm font-medium text-ink/50 uppercase tracking-wide">Actual Expenses</h3>
             <button onClick={() => { setShowForm(true); setEditingId(null); setForm(emptyForm()) }}
               className="tp-btn text-xs py-1.5"><Plus className="w-3.5 h-3.5" /> Add expense</button>
           </div>
@@ -311,14 +312,14 @@ export default function BudgetPanel({ tripId, trip, filterDayId }: Props) {
           {showForm && (
             <div className="tp-card p-5 space-y-4 border border-emerald-500/20">
               <div className="flex items-center justify-between">
-                <h4 className="text-sm font-semibold text-emerald-400">{editingId ? 'Edit' : 'Add'} expense</h4>
-                <button onClick={() => { setShowForm(false); setEditingId(null) }} className="text-white/30 hover:text-white/60"><X className="w-4 h-4" /></button>
+                <h4 className="text-sm font-semibold text-accent">{editingId ? 'Edit' : 'Add'} expense</h4>
+                <button onClick={() => { setShowForm(false); setEditingId(null) }} className="text-ink/30 hover:text-ink/60"><X className="w-4 h-4" /></button>
               </div>
               <input className="tp-input w-full" placeholder="Description (e.g. Dinner at Olive Garden)"
                 value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
               <div className="grid grid-cols-2 gap-3">
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 text-sm">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40 text-sm">$</span>
                   <input className="tp-input pl-7 w-full" placeholder="0.00" type="number" step="0.01"
                     value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
                 </div>
@@ -339,26 +340,26 @@ export default function BudgetPanel({ tripId, trip, filterDayId }: Props) {
                 </div>
               </div>
               <div>
-                <div className="text-white/50 text-xs mb-2">Receipt photo</div>
+                <div className="text-ink/50 text-xs mb-2">Receipt photo</div>
                 {form.receipt ? (
                   <div className="relative inline-block">
                     {/* eslint-disable-next-line @next/next/no-img-element -- new upload (data: URL) or the stored receipt's URL */}
-                    <img src={form.receipt} alt="Receipt" className="h-28 rounded-xl object-cover border border-white/10" />
+                    <img src={form.receipt} alt="Receipt" className="h-28 rounded-xl object-cover border border-ink/10" />
                     <button onClick={() => setForm(f => ({ ...f, receipt: null }))}
                       className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 flex items-center justify-center">
-                      <X className="w-3 h-3 text-white" />
+                      <X className="w-3 h-3 text-ink" />
                     </button>
                   </div>
                 ) : (
                   <button onClick={() => fileRef.current?.click()}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-white/15 text-white/40 hover:border-emerald-500/30 hover:text-emerald-400 text-sm">
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-ink/15 text-ink/40 hover:border-emerald-500/30 hover:text-accent text-sm">
                     <Camera className="w-4 h-4" /> Upload receipt
                   </button>
                 )}
                 <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleReceipt} />
               </div>
               <div className="flex gap-2 justify-end">
-                <button onClick={() => { setShowForm(false); setEditingId(null) }} className="px-4 py-2 text-sm text-white/50 hover:text-white/80">Cancel</button>
+                <button onClick={() => { setShowForm(false); setEditingId(null) }} className="px-4 py-2 text-sm text-ink/50 hover:text-ink/80">Cancel</button>
                 <button onClick={saveExpense} disabled={!form.name.trim() || !form.amount || saving}
                   className="tp-btn text-sm flex items-center gap-2 disabled:opacity-40">
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
@@ -373,11 +374,11 @@ export default function BudgetPanel({ tripId, trip, filterDayId }: Props) {
             <div className="flex gap-2 overflow-x-auto pb-1">
               <button onClick={() => setCategoryFilter('all')}
                 className={clsx('px-3 py-1.5 rounded-full text-xs font-medium border whitespace-nowrap transition-all',
-                  categoryFilter === 'all' ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white/5 text-white/50 border-white/10')}>All</button>
+                  categoryFilter === 'all' ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-ink/5 text-ink/50 border-ink/10')}>All</button>
               {CATEGORIES.filter(c => expenses.some(e => e.category === c)).map(cat => (
                 <button key={cat} onClick={() => setCategoryFilter(cat)}
                   className={clsx('px-3 py-1.5 rounded-full text-xs font-medium border whitespace-nowrap transition-all',
-                    categoryFilter === cat ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white/5 text-white/50 border-white/10')}>
+                    categoryFilter === cat ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-ink/5 text-ink/50 border-ink/10')}>
                   {EXPENSE_CATEGORY_ICONS[cat]} {CATEGORY_LABELS[cat]}
                 </button>
               ))}
@@ -386,7 +387,7 @@ export default function BudgetPanel({ tripId, trip, filterDayId }: Props) {
 
           {/* Expense list */}
           {displayed.length === 0 ? (
-            <div className="text-center py-10 text-white/30">
+            <div className="text-center py-10 text-ink/30">
               <Receipt className="w-10 h-10 mx-auto mb-3 opacity-30" />
               <p className="text-sm">No expenses yet</p>
               <p className="text-xs mt-1">Add receipts after each purchase</p>
@@ -401,55 +402,49 @@ export default function BudgetPanel({ tripId, trip, filterDayId }: Props) {
                       {EXPENSE_CATEGORY_ICONS[expense.category as ExpenseCategory]}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-white/90 text-sm font-medium truncate">{expense.name}</div>
-                      <div className="text-white/40 text-xs flex items-center gap-2 mt-0.5">
+                      <div className="text-ink/90 text-sm font-medium truncate">{expense.name}</div>
+                      <div className="text-ink/40 text-xs flex items-center gap-2 mt-0.5">
                         <span>{expense.date}</span>
                         {expense.paymentMethod && <><span>·</span><span>{expense.paymentMethod}</span></>}
-                        {expense.receipt && <span className="text-emerald-400/60">📎</span>}
+                        {expense.receipt && <span className="text-accent/60">📎</span>}
                       </div>
                     </div>
                     <div className="text-right mr-2">
-                      <div className="text-white font-medium">${expense.amount.toFixed(2)}</div>
+                      <div className="text-ink font-medium">${expense.amount.toFixed(2)}</div>
                       <div className="text-xs" style={{ color: EXPENSE_CATEGORY_COLORS[expense.category as ExpenseCategory] }}>
                         {CATEGORY_LABELS[expense.category as ExpenseCategory]}
                       </div>
                     </div>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       {expense.receipt && (
-                        <button onClick={() => setViewReceipt(expense.receipt!)} className="p-1.5 text-white/30 hover:text-emerald-400">
+                        <button onClick={() => setViewReceipt(expense.receipt!)} className="p-1.5 text-ink/30 hover:text-accent">
                           <Camera className="w-4 h-4" />
                         </button>
                       )}
-                      <button onClick={() => startEdit(expense)} className="p-1.5 text-white/30 hover:text-white/70">
+                      <button onClick={() => startEdit(expense)} className="p-1.5 text-ink/30 hover:text-ink/70">
                         <Edit2 className="w-4 h-4" />
                       </button>
-                      <button onClick={() => deleteExpense(expense.id)} className="p-1.5 text-white/30 hover:text-red-400">
+                      <button onClick={() => deleteExpense(expense.id)} className="p-1.5 text-ink/30 hover:text-danger">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
                 </div>
               ))}
-              <div className="flex justify-between items-center pt-2 border-t border-white/8 px-1">
-                <span className="text-white/50 text-sm">Total spent</span>
-                <span className="text-white font-semibold">${totalActual.toFixed(2)}</span>
+              <div className="flex justify-between items-center pt-2 border-t border-ink/8 px-1">
+                <span className="text-ink/50 text-sm">Total spent</span>
+                <span className="text-ink font-semibold">${totalActual.toFixed(2)}</span>
               </div>
             </div>
           )}
         </div>
       )}
 
-      {/* Receipt lightbox */}
-      {viewReceipt && (
-        <div className="fixed inset-0 bg-black/90 z-[1000] flex items-center justify-center p-4"
-          onClick={() => setViewReceipt(null)}>
-          {/* eslint-disable-next-line @next/next/no-img-element -- new upload (data: URL) or the stored receipt's URL */}
-          <img src={viewReceipt} alt="Receipt" className="max-w-full max-h-full rounded-xl" />
-          <button className="absolute top-4 right-4 text-white/60 hover:text-white">
-            <X className="w-8 h-8" />
-          </button>
-        </div>
-      )}
+      <Lightbox
+        items={viewReceipt ? [{ src: viewReceipt, alt: 'Receipt', href: viewReceipt.startsWith('data:') ? undefined : viewReceipt }] : []}
+        index={viewReceipt ? 0 : null}
+        onIndex={(i) => i === null && setViewReceipt(null)}
+      />
     </div>
   )
 }

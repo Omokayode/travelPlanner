@@ -9,14 +9,14 @@ export default function Navbar() {
   const pathname = usePathname()
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[#1e293b] bg-[#0b1121]/90 backdrop-blur-md">
+    <header className="sticky top-0 z-40 border-b border-line bg-base/90 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2.5 group">
           <div className="w-7 h-7 rounded-lg bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/30 group-hover:shadow-emerald-500/50 transition-shadow">
-            <Compass className="w-4 h-4 text-white" />
+            <Compass className="w-4 h-4 text-ink" />
           </div>
-          <span className="font-display text-lg font-semibold text-[#f1f5f9] tracking-tight">
-            Trip by <span className="text-emerald-500">JKBLabs</span>
+          <span className="font-display text-lg font-semibold text-ink tracking-tight">
+            Trip by <span className="text-accent">JKBLabs</span>
           </span>
         </Link>
 
@@ -32,7 +32,7 @@ export default function Navbar() {
               await fetch('/api/auth/logout', { method: 'POST' })
               window.location.href = '/login'
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-[#94a3b8] hover:text-[#f1f5f9] hover:bg-[#1a2235] transition-all duration-200"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-ink-2 hover:text-ink hover:bg-card transition-all duration-200"
           >
             <LogOut className="w-4 h-4" />
           </button>
@@ -50,8 +50,8 @@ function NavLink({ href, icon, label, active }: {
       className={clsx(
         'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200',
         active
-          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
-          : 'text-[#94a3b8] hover:text-[#f1f5f9] hover:bg-[#1a2235]'
+          ? 'bg-emerald-500/15 text-accent border border-emerald-500/20'
+          : 'text-ink-2 hover:text-ink hover:bg-card'
       )}>
       {icon}{label}
     </Link>

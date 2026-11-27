@@ -1,11 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Settings, Car, Fuel, Camera, Plus, Trash2, Check, Loader2 } from 'lucide-react'
+import { Settings, Car, Fuel, Camera, Plus, Trash2, Check, Loader2, Palette } from 'lucide-react'
 import Navbar from '@/components/Navbar'
+import ThemeSwitch from '@/components/ui/ThemeSwitch'
 import { Vehicle, FuelType } from '@/lib/types'
 import { DEFAULT_FUEL_PRICES, DEFAULT_MPG } from '@/lib/domain/fuel'
 import { invalidateAppSettings } from '@/lib/useAppSettings'
+import { toast } from '@/lib/client'
 
 interface AppSettings {
   immichUrl?: string | null
@@ -62,7 +64,7 @@ export default function SettingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(patch),
       })
-      if (!res.ok) { alert((await res.json()).error || 'Could not save'); return }
+      if (!res.ok) { toast.error((await res.json().catch(() => null))?.error || 'Could not save'); return }
       setSettings(await res.json())
       invalidateAppSettings()
       setSaved(true)
@@ -114,42 +116,51 @@ export default function SettingsPage() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-[#0b1121]">
+    <div className="min-h-screen bg-base">
       <Navbar />
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+        <Loader2 className="w-8 h-8 text-accent animate-spin" />
       </div>
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-[#0b1121]">
+    <div className="min-h-screen bg-base">
       <Navbar />
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-              <Settings className="w-6 h-6 text-emerald-500" /> App Settings
+            <h1 className="text-2xl font-bold text-ink flex items-center gap-2">
+              <Settings className="w-6 h-6 text-accent" /> App Settings
             </h1>
-            <p className="text-white/40 text-sm mt-1">Shared across all trips</p>
+            <p className="text-ink/40 text-sm mt-1">Shared across all trips</p>
           </div>
           {saved && (
-            <div className="flex items-center gap-1.5 text-emerald-400 text-sm">
+            <div className="flex items-center gap-1.5 text-accent text-sm">
               <Check className="w-4 h-4" /> Saved
             </div>
           )}
         </div>
 
+        {/* Appearance */}
+        <section className="tp-card p-5 space-y-3">
+          <h2 className="text-sm font-semibold text-ink flex items-center gap-2">
+            <Palette className="w-4 h-4 text-accent" /> Appearance
+          </h2>
+          <ThemeSwitch />
+          <p className="text-ink-3 text-xs">&ldquo;Device&rdquo; follows your phone or computer&apos;s light/dark setting. Saved in this browser.</p>
+        </section>
+
         {/* Immich */}
         <section className="tp-card p-5 space-y-4">
-          <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-            <Camera className="w-4 h-4 text-emerald-500" /> Immich Photos
+          <h2 className="text-sm font-semibold text-ink flex items-center gap-2">
+            <Camera className="w-4 h-4 text-accent" /> Immich Photos
           </h2>
           <div className="space-y-3">
             <div>
-              <label className="text-white/50 text-xs mb-1 block">Server URL</label>
+              <label className="text-ink/50 text-xs mb-1 block">Server URL</label>
               {settings.immichUrlFromEnv ? (
-                <div className="text-white/60 text-sm">Set by the server (internal Immich address)</div>
+                <div className="text-ink/60 text-sm">Set by the server (internal Immich address)</div>
               ) : (
                 <input className="tp-input w-full" placeholder="https://photos.yourdomain.com"
                   value={settings.immichUrl || ''}
@@ -158,8 +169,8 @@ export default function SettingsPage() {
               )}
             </div>
             <div>
-              <label className="text-white/50 text-xs mb-1 block">
-                API Key {settings.immichKeySet && <span className="text-emerald-400 ml-1">● saved</span>}
+              <label className="text-ink/50 text-xs mb-1 block">
+                API Key {settings.immichKeySet && <span className="text-accent ml-1">● saved</span>}
               </label>
               <div className="flex gap-2">
                 <input className="tp-input w-full font-mono text-sm" type="password" autoComplete="off"
@@ -172,22 +183,22 @@ export default function SettingsPage() {
                   Save key
                 </button>
               </div>
-              <div className="text-white/30 text-xs mt-1">
+              <div className="text-ink/30 text-xs mt-1">
                 Immich → Account Settings → API Keys. Permissions needed: album.read, asset.read, asset.view,
                 asset.download. The key is kept on the server and never shown again.
                 {settings.immichKeySet && (
-                  <button type="button" className="ml-2 text-red-400/70 hover:text-red-400"
+                  <button type="button" className="ml-2 text-danger/70 hover:text-danger"
                     onClick={() => save({ clearImmichApiKey: true })}>Remove saved key</button>
                 )}
               </div>
             </div>
             <div className="flex items-center gap-3">
               <button type="button" onClick={testImmich} disabled={testing}
-                className="px-3 py-1.5 rounded-lg border border-white/10 hover:border-emerald-500/40 text-white/80 text-sm">
+                className="px-3 py-1.5 rounded-lg border border-ink/10 hover:border-emerald-500/40 text-ink/80 text-sm">
                 {testing ? 'Testing…' : 'Test connection'}
               </button>
               {testResult && (
-                <span className={testResult.ok ? 'text-emerald-400 text-sm' : 'text-red-400 text-sm'}>{testResult.text}</span>
+                <span className={testResult.ok ? 'text-accent text-sm' : 'text-danger text-sm'}>{testResult.text}</span>
               )}
             </div>
           </div>
@@ -195,15 +206,15 @@ export default function SettingsPage() {
 
         {/* Gas Prices */}
         <section className="tp-card p-5 space-y-4">
-          <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-            <Fuel className="w-4 h-4 text-emerald-500" /> Gas Prices
+          <h2 className="text-sm font-semibold text-ink flex items-center gap-2">
+            <Fuel className="w-4 h-4 text-accent" /> Gas Prices
           </h2>
           <div className="grid grid-cols-3 gap-3">
             {(['regular', 'premium', 'diesel'] as const).map(type => (
               <div key={type}>
-                <label className="text-white/50 text-xs mb-1 block">{FUEL_LABELS[type]}</label>
+                <label className="text-ink/50 text-xs mb-1 block">{FUEL_LABELS[type]}</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/30 text-sm">$</span>
                   <input type="number" step="0.01" className="tp-input pl-7 w-full"
                     placeholder={DEFAULT_GAS[type].toFixed(2)}
                     value={settings[`gasPrice${type.charAt(0).toUpperCase() + type.slice(1)}` as keyof AppSettings] as number || ''}
@@ -213,40 +224,40 @@ export default function SettingsPage() {
               </div>
             ))}
           </div>
-          <p className="text-white/30 text-xs">Used for fuel cost estimates on road trip segments</p>
+          <p className="text-ink/30 text-xs">Used for fuel cost estimates on road trip segments</p>
         </section>
 
         {/* Saved Vehicles */}
         <section className="tp-card p-5 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-              <Car className="w-4 h-4 text-emerald-500" /> Saved Vehicles
+            <h2 className="text-sm font-semibold text-ink flex items-center gap-2">
+              <Car className="w-4 h-4 text-accent" /> Saved Vehicles
             </h2>
             <button onClick={() => setAddingVehicle(true)}
               className="tp-btn text-xs py-1.5"><Plus className="w-3.5 h-3.5" /> Add</button>
           </div>
 
           {(settings.savedVehicles || []).length === 0 && !addingVehicle && (
-            <div className="text-center py-6 text-white/30 text-sm border border-dashed border-white/10 rounded-xl">
+            <div className="text-center py-6 text-ink/30 text-sm border border-dashed border-ink/10 rounded-xl">
               No saved vehicles yet — add one to skip the vehicle form when creating trips
             </div>
           )}
 
           {(settings.savedVehicles || []).map((v, i) => (
-            <div key={i} className="flex items-center gap-3 p-3 bg-white/3 rounded-xl border border-white/8">
-              <Car className="w-4 h-4 text-emerald-500 shrink-0" />
+            <div key={i} className="flex items-center gap-3 p-3 bg-ink/3 rounded-xl border border-ink/8">
+              <Car className="w-4 h-4 text-accent shrink-0" />
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-white">{v.year && `${v.year} `}{v.make} {v.model}</div>
-                <div className="text-xs text-white/40">{v.fuelEfficiency} MPG · {v.tankSize}gal · {v.fuelType}</div>
+                <div className="text-sm font-medium text-ink">{v.year && `${v.year} `}{v.make} {v.model}</div>
+                <div className="text-xs text-ink/40">{v.fuelEfficiency} MPG · {v.tankSize}gal · {v.fuelType}</div>
               </div>
-              <button onClick={() => removeVehicle(i)} className="text-white/20 hover:text-red-400">
+              <button onClick={() => removeVehicle(i)} className="text-ink/20 hover:text-danger">
                 <Trash2 className="w-4 h-4" />
               </button>
             </div>
           ))}
 
           {addingVehicle && (
-            <div className="space-y-3 p-4 bg-white/3 rounded-xl border border-emerald-500/20">
+            <div className="space-y-3 p-4 bg-ink/3 rounded-xl border border-emerald-500/20">
               <div className="grid grid-cols-3 gap-2">
                 <input className="tp-input" placeholder="Make" value={newVehicle.make || ''}
                   onChange={e => setNewVehicle(v => ({ ...v, make: e.target.value }))} />
@@ -257,17 +268,17 @@ export default function SettingsPage() {
               </div>
               <div className="grid grid-cols-3 gap-2">
                 <div>
-                  <label className="text-white/40 text-xs mb-1 block">MPG</label>
+                  <label className="text-ink/40 text-xs mb-1 block">MPG</label>
                   <input className="tp-input w-full" type="number" value={newVehicle.fuelEfficiency || DEFAULT_MPG}
                     onChange={e => setNewVehicle(v => ({ ...v, fuelEfficiency: parseFloat(e.target.value) }))} />
                 </div>
                 <div>
-                  <label className="text-white/40 text-xs mb-1 block">Tank (gal)</label>
+                  <label className="text-ink/40 text-xs mb-1 block">Tank (gal)</label>
                   <input className="tp-input w-full" type="number" value={newVehicle.tankSize || 15}
                     onChange={e => setNewVehicle(v => ({ ...v, tankSize: parseFloat(e.target.value) }))} />
                 </div>
                 <div>
-                  <label className="text-white/40 text-xs mb-1 block">Fuel type</label>
+                  <label className="text-ink/40 text-xs mb-1 block">Fuel type</label>
                   <select className="tp-input w-full" value={newVehicle.fuelType || 'regular'}
                     onChange={e => setNewVehicle(v => ({ ...v, fuelType: e.target.value as FuelType }))}>
                     {Object.entries(FUEL_LABELS).map(([k, lbl]) => <option key={k} value={k}>{lbl}</option>)}
@@ -275,7 +286,7 @@ export default function SettingsPage() {
                 </div>
               </div>
               <div className="flex gap-2 justify-end">
-                <button onClick={() => setAddingVehicle(false)} className="px-4 py-2 text-sm text-white/50">Cancel</button>
+                <button onClick={() => setAddingVehicle(false)} className="px-4 py-2 text-sm text-ink/50">Cancel</button>
                 <button onClick={addVehicle} disabled={!newVehicle.make || saving}
                   className="tp-btn text-sm disabled:opacity-40">Save Vehicle</button>
               </div>

@@ -2,10 +2,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Dialog from '@/components/ui/Dialog'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { format, parseISO } from 'date-fns'
-import { ArrowLeft, Plus, Navigation, CheckCircle2, Circle, ChevronRight, ExternalLink, Calendar, Globe, Route, X, Mail, Loader2 } from 'lucide-react'
+import { ArrowLeft, Plus, Navigation, CheckCircle2, Circle, ChevronRight, ExternalLink, Calendar, Globe, Route, Mail, Loader2 } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import MapView from '@/components/MapView'
 import SegmentEditor from '@/components/SegmentEditor'
@@ -130,10 +131,10 @@ export default function DayPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0b1121]">
+      <div className="min-h-screen bg-base">
         <Navbar />
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+          <Loader2 className="w-8 h-8 text-accent animate-spin" />
         </div>
       </div>
     )
@@ -174,38 +175,38 @@ export default function DayPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-[#0b1121]">
+    <div className="min-h-screen bg-base">
       <Navbar />
 
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Header */}
         <div className="flex items-start gap-4 mb-6">
           <Link href={`/trips/${tripId}`}
-            className="mt-1 p-2 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/5 transition-colors">
+            className="mt-1 p-2 rounded-lg text-ink/30 hover:text-ink/70 hover:bg-ink/5 transition-colors">
             <ArrowLeft className="w-4 h-4" />
           </Link>
           <div className="flex-1 min-w-0">
-            <div className="text-xs text-white/30 mb-0.5">{trip.name}</div>
-            <h1 className="font-display text-2xl font-semibold text-white">
+            <div className="text-xs text-ink/30 mb-0.5">{trip.name}</div>
+            <h1 className="font-display text-2xl font-semibold text-ink">
               Day {day.dayNumber}
               {day.title && ` · ${day.title}`}
             </h1>
-            <div className="flex items-center gap-2 text-sm text-white/40 mt-1">
+            <div className="flex items-center gap-2 text-sm text-ink/40 mt-1">
               <Calendar className="w-3.5 h-3.5" />
               {format(parseISO(day.date), 'EEEE, MMMM d, yyyy')}
               {(day.startCity || day.endCity) && (
                 <>
                   <span className="opacity-30">·</span>
                   {day.startCity}
-                  {day.startCity && day.endCity && <ChevronRight className="w-3.5 h-3.5 text-emerald-500" />}
+                  {day.startCity && day.endCity && <ChevronRight className="w-3.5 h-3.5 text-accent" />}
                   {day.endCity}
                 </>
               )}
             </div>
             {dayLodging && (
-              <div className="flex items-center gap-1.5 text-sm text-blue-400/70 mt-1">
-                🏨 Base: <span className="font-medium text-blue-400">{dayLodging.name}</span>
-                <span className="text-white/30 text-xs">· {dayLodging.location?.city || dayLodging.location?.name}</span>
+              <div className="flex items-center gap-1.5 text-sm text-info/70 mt-1">
+                🏨 Base: <span className="font-medium text-info">{dayLodging.name}</span>
+                <span className="text-ink/30 text-xs">· {dayLodging.location?.city || dayLodging.location?.name}</span>
               </div>
             )}
           </div>
@@ -214,8 +215,8 @@ export default function DayPage() {
             className={clsx(
               'flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium border transition-all',
               day.visited
-                ? 'border-green-500/30 bg-green-500/10 text-green-400'
-                : 'border-white/10 text-white/40 hover:border-green-500/30 hover:text-green-400'
+                ? 'border-green-500/30 bg-green-500/10 text-ok'
+                : 'border-ink/10 text-ink/40 hover:border-green-500/30 hover:text-ok'
             )}
           >
             {day.visited ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-4 h-4" />}
@@ -236,11 +237,11 @@ export default function DayPage() {
               <div className="flex gap-2">
                 <a href={getGoogleMapsUrl(firstSeg.from, lastSeg.to, [], day.segments)}
                   target="_blank" rel="noopener noreferrer" className="tp-btn-ghost flex-1 justify-center text-sm">
-                  <Globe className="w-4 h-4 text-blue-400" /> Google Maps <ExternalLink className="w-3 h-3" />
+                  <Globe className="w-4 h-4 text-info" /> Google Maps <ExternalLink className="w-3 h-3" />
                 </a>
                 <a href={getWazeUrl(lastSeg.to)}
                   target="_blank" rel="noopener noreferrer" className="tp-btn-ghost flex-1 justify-center text-sm">
-                  <Navigation className="w-4 h-4 text-blue-400" /> Waze <ExternalLink className="w-3 h-3" />
+                  <Navigation className="w-4 h-4 text-info" /> Waze <ExternalLink className="w-3 h-3" />
                 </a>
               </div>
             )}
@@ -263,7 +264,7 @@ export default function DayPage() {
             {/* Segments */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wide">Route Segments</h3>
+                <h3 className="text-sm font-semibold text-ink/50 uppercase tracking-wide">Route Segments</h3>
                 <button onClick={() => { setAddingSegment(true); setEditingSegment(null) }}
                   className="tp-btn text-xs py-1.5">
                   <Plus className="w-3.5 h-3.5" /> Add Leg
@@ -272,8 +273,8 @@ export default function DayPage() {
 
               {(day.segments?.length ?? 0) === 0 && !addingSegment && (
                 <div className="tp-card text-center py-8 border-dashed space-y-3">
-                  <Route className="w-8 h-8 text-white/10 mx-auto mb-2" />
-                  <div className="text-sm text-white/40">No route segments yet</div>
+                  <Route className="w-8 h-8 text-ink/10 mx-auto mb-2" />
+                  <div className="text-sm text-ink/40">No route segments yet</div>
                   {prevDayCity && (
                     <button
                       onClick={async () => {
@@ -284,12 +285,12 @@ export default function DayPage() {
                         }
                         await saveDay(updated)
                       }}
-                      className="mx-auto flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm text-white/60 hover:border-emerald-500/30 hover:text-emerald-400 transition-all"
+                      className="mx-auto flex items-center gap-2 px-4 py-2 rounded-xl bg-ink/5 border border-ink/10 text-sm text-ink/60 hover:border-emerald-500/30 hover:text-accent transition-all"
                     >
                       📍 Same city as yesterday — <span className="font-medium">{prevDayCity}</span>
                     </button>
                   )}
-                  <div className="text-xs text-white/20">or add a leg below to plan travel</div>
+                  <div className="text-xs text-ink/20">or add a leg below to plan travel</div>
                 </div>
               )}
 
@@ -311,7 +312,7 @@ export default function DayPage() {
 
               {(addingSegment || editingSegment) && (
                 <div className="tp-card border-emerald-500/20">
-                  <h4 className="text-sm font-semibold text-emerald-400 mb-4 flex items-center gap-2">
+                  <h4 className="text-sm font-semibold text-accent mb-4 flex items-center gap-2">
                     <Route className="w-4 h-4" />
                     {editingSegment ? 'Edit Segment' : 'New Segment'}
                   </h4>
@@ -329,12 +330,12 @@ export default function DayPage() {
 
           {/* Right – panel tabs */}
           <div className="xl:col-span-2">
-            <div className="flex gap-1 mb-4 bg-white/5 p-1 rounded-xl overflow-x-auto">
+            <div className="flex gap-1 mb-4 bg-ink/5 p-1 rounded-xl overflow-x-auto">
               {TABS.map(({ key, label, icon }) => (
                 <button key={key} onClick={() => setTab(key)}
                   className={clsx(
                     'flex-shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all',
-                    tab === key ? 'bg-emerald-500 text-white' : 'text-white/40 hover:text-white/70'
+                    tab === key ? 'bg-emerald-500 text-white' : 'text-ink/40 hover:text-ink/70'
                   )}>
                   {icon} {label}
                 </button>
@@ -348,7 +349,7 @@ export default function DayPage() {
             {tab === 'stops' && (
               <div className="space-y-3">
                 {(day.segments?.length ?? 0) === 0 ? (
-                  <div className="tp-card text-center py-6 text-sm text-white/40">
+                  <div className="tp-card text-center py-6 text-sm text-ink/40">
                     Add a route segment first to manage stops
                   </div>
                 ) : (
@@ -391,26 +392,10 @@ export default function DayPage() {
         </div>
       </div>
 
-      {/* Confirmation modal */}
-      {showConfirmation && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
-          onClick={() => setShowConfirmation(null)}>
-          <div className="bg-[#0f1929] border border-white/10 rounded-2xl p-6 max-w-2xl w-full"
-            onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-semibold text-white flex items-center gap-2">
-                <Mail className="w-5 h-5 text-emerald-500" /> Confirmation Details
-              </h3>
-              <button onClick={() => setShowConfirmation(null)} className="text-white/40 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <pre className="tp-input h-80 overflow-auto text-xs font-mono whitespace-pre-wrap">
-              {showConfirmation}
-            </pre>
-          </div>
-        </div>
-      )}
+      <Dialog open={!!showConfirmation} onClose={() => setShowConfirmation(null)} size="lg"
+        title="Confirmation details" icon={<Mail className="w-5 h-5 text-accent" />}>
+        <pre className="tp-input h-80 overflow-auto text-xs font-mono whitespace-pre-wrap">{showConfirmation}</pre>
+      </Dialog>
     </div>
   )
 }

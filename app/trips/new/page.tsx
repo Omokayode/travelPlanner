@@ -15,6 +15,7 @@ import {
 import Navbar from '@/components/Navbar'
 import { Trip, TripType, Vehicle, FuelType, Day } from '@/lib/types'
 import clsx from 'clsx'
+import { toast } from '@/lib/client'
 
 const TRIP_TYPES: { type: TripType; icon: React.ComponentType<{ className?: string }>; label: string; desc: string; color: string }[] = [
   { type: 'road_trip', icon: Car, label: 'Road Trip', desc: 'Drive with fuel calcs, toll estimates & stop suggestions', color: 'amber' },
@@ -54,7 +55,7 @@ export default function NewTripPage() {
   const maxStep = tripType === 'road_trip' ? 3 : 2
 
   const createTrip = async () => {
-    if (!datesValid) { alert('The end date must be on or after the start date.'); return }
+    if (!datesValid) { toast.error('The end date must be on or after the start date.'); return }
     setSaving(true)
     const days: Day[] = buildDays(startDate, endDate, uuidv4)
 
@@ -91,19 +92,19 @@ export default function NewTripPage() {
       })
       const created = await res.json()
       if (!res.ok) {
-        alert(created?.error || 'Could not create the trip')
+        toast.error(created?.error || 'Could not create the trip')
         setSaving(false)
         return
       }
       router.push(`/trips/${created.id}`)
     } catch {
-      alert('Could not reach the server')
+      toast.error('Could not reach the server')
       setSaving(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-[#0b1121]">
+    <div className="min-h-screen bg-base">
       <Navbar />
       <div className="max-w-2xl mx-auto px-4 py-10">
 
@@ -114,12 +115,12 @@ export default function NewTripPage() {
               <div className={clsx(
                 'w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all',
                 step > s ? 'bg-emerald-500 text-white' :
-                step === s ? 'bg-emerald-500/20 text-emerald-500 border border-emerald-500' :
-                'bg-white/5 text-white/30'
+                step === s ? 'bg-emerald-500/20 text-accent border border-emerald-500' :
+                'bg-ink/5 text-ink/30'
               )}>
                 {step > s ? <Check className="w-4 h-4" /> : s}
               </div>
-              {s < maxStep && <div className={clsx('flex-1 h-0.5', step > s ? 'bg-emerald-500' : 'bg-white/10')} style={{ width: 40 }} />}
+              {s < maxStep && <div className={clsx('flex-1 h-0.5', step > s ? 'bg-emerald-500' : 'bg-ink/10')} style={{ width: 40 }} />}
             </div>
           ))}
         </div>
@@ -128,8 +129,8 @@ export default function NewTripPage() {
         {step === 1 && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-white mb-1">Trip basics</h2>
-              <p className="text-white/40">Give your adventure a name and pick dates.</p>
+              <h2 className="text-2xl font-bold text-ink mb-1">Trip basics</h2>
+              <p className="text-ink/40">Give your adventure a name and pick dates.</p>
             </div>
 
             <div className="space-y-3">
@@ -148,20 +149,20 @@ export default function NewTripPage() {
               />
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-white/50 text-xs mb-1 block">Start date</label>
+                  <label className="text-ink/50 text-xs mb-1 block">Start date</label>
                   <input type="date" className="tp-input w-full" value={startDate} onChange={e => setStartDate(e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-white/50 text-xs mb-1 block">End date</label>
+                  <label className="text-ink/50 text-xs mb-1 block">End date</label>
                   <input type="date" className="tp-input w-full" value={endDate} onChange={e => setEndDate(e.target.value)} />
                 </div>
               </div>
-              <div className="flex items-center gap-2 text-white/40 text-sm">
+              <div className="flex items-center gap-2 text-ink/40 text-sm">
                 <Calendar className="w-4 h-4" />
                 {numDays} day{numDays !== 1 ? 's' : ''}
               </div>
               <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink/30" />
                 <input
                   className="tp-input pl-9 w-full"
                   placeholder="Total budget (optional)"
@@ -173,7 +174,7 @@ export default function NewTripPage() {
             </div>
 
             <div className="space-y-3">
-              <label className="text-white/50 text-xs">Trip type</label>
+              <label className="text-ink/50 text-xs">Trip type</label>
               <div className="grid grid-cols-2 gap-3">
                 {TRIP_TYPES.map(({ type, icon: Icon, label, desc }) => (
                   <button
@@ -183,12 +184,12 @@ export default function NewTripPage() {
                       'p-4 rounded-xl border text-left transition-all',
                       tripType === type
                         ? 'border-emerald-500 bg-emerald-500/10'
-                        : 'border-white/10 bg-white/3 hover:border-white/20'
+                        : 'border-ink/10 bg-ink/3 hover:border-ink/20'
                     )}
                   >
-                    <Icon className={clsx('w-5 h-5 mb-2', tripType === type ? 'text-emerald-500' : 'text-white/40')} />
-                    <div className="text-white text-sm font-medium">{label}</div>
-                    <div className="text-white/40 text-xs mt-0.5">{desc}</div>
+                    <Icon className={clsx('w-5 h-5 mb-2', tripType === type ? 'text-accent' : 'text-ink/40')} />
+                    <div className="text-ink text-sm font-medium">{label}</div>
+                    <div className="text-ink/40 text-xs mt-0.5">{desc}</div>
                   </button>
                 ))}
               </div>
@@ -204,8 +205,8 @@ export default function NewTripPage() {
         {step === 2 && tripType === 'road_trip' && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-white mb-1">Your vehicle</h2>
-              <p className="text-white/40">Needed for fuel cost and range calculations.</p>
+              <h2 className="text-2xl font-bold text-ink mb-1">Your vehicle</h2>
+              <p className="text-ink/40">Needed for fuel cost and range calculations.</p>
             </div>
 
             <SavedVehiclePicker onSelect={(v) => {
@@ -224,16 +225,16 @@ export default function NewTripPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-white/50 text-xs mb-1 block">Fuel efficiency (MPG)</label>
+                  <label className="text-ink/50 text-xs mb-1 block">Fuel efficiency (MPG)</label>
                   <input className="tp-input w-full" type="number" value={mpg} onChange={e => setMpg(e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-white/50 text-xs mb-1 block">Tank size (gallons)</label>
+                  <label className="text-ink/50 text-xs mb-1 block">Tank size (gallons)</label>
                   <input className="tp-input w-full" type="number" value={tankSize} onChange={e => setTankSize(e.target.value)} />
                 </div>
               </div>
               <div>
-                <label className="text-white/50 text-xs mb-2 block">Fuel type</label>
+                <label className="text-ink/50 text-xs mb-2 block">Fuel type</label>
                 <div className="grid grid-cols-2 gap-2">
                   {FUEL_TYPES.map(({ type, label }) => (
                     <button
@@ -241,7 +242,7 @@ export default function NewTripPage() {
                       onClick={() => setFuelType(type)}
                       className={clsx(
                         'px-3 py-2 rounded-xl text-sm border transition-all',
-                        fuelType === type ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400' : 'border-white/10 text-white/50 hover:border-white/20'
+                        fuelType === type ? 'border-emerald-500 bg-emerald-500/10 text-accent' : 'border-ink/10 text-ink/50 hover:border-ink/20'
                       )}
                     >
                       {label}
@@ -252,7 +253,7 @@ export default function NewTripPage() {
             </div>
 
             <div className="flex gap-3">
-              <button onClick={() => setStep(1)} className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-white/15 text-white/50 hover:text-white hover:border-white/30 text-sm">
+              <button onClick={() => setStep(1)} className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-ink/15 text-ink/50 hover:text-ink hover:border-ink/30 text-sm">
                 <ArrowLeft className="w-4 h-4" /> Back
               </button>
               <button onClick={() => setStep(3)} className="tp-btn flex-1 flex items-center justify-center gap-2">
@@ -266,39 +267,39 @@ export default function NewTripPage() {
         {((step === 2 && tripType !== 'road_trip') || step === 3) && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-white mb-1">Ready to go!</h2>
-              <p className="text-white/40">Here&apos;s a summary of your trip.</p>
+              <h2 className="text-2xl font-bold text-ink mb-1">Ready to go!</h2>
+              <p className="text-ink/40">Here&apos;s a summary of your trip.</p>
             </div>
 
             <div className="tp-card p-5 space-y-3">
               <div className="flex justify-between text-sm">
-                <span className="text-white/50">Name</span>
-                <span className="text-white font-medium">{name || 'New Trip'}</span>
+                <span className="text-ink/50">Name</span>
+                <span className="text-ink font-medium">{name || 'New Trip'}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-white/50">Dates</span>
-                <span className="text-white">{startDate} → {endDate} ({numDays} days)</span>
+                <span className="text-ink/50">Dates</span>
+                <span className="text-ink">{startDate} → {endDate} ({numDays} days)</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-white/50">Type</span>
-                <span className="text-white">{tripType.replace('_', ' ')}</span>
+                <span className="text-ink/50">Type</span>
+                <span className="text-ink">{tripType.replace('_', ' ')}</span>
               </div>
               {budget && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-white/50">Budget</span>
-                  <span className="text-emerald-400">${parseFloat(budget).toLocaleString()}</span>
+                  <span className="text-ink/50">Budget</span>
+                  <span className="text-accent">${parseFloat(budget).toLocaleString()}</span>
                 </div>
               )}
               {tripType === 'road_trip' && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-white/50">Vehicle</span>
-                  <span className="text-white">{vehicleMake} {vehicleModel} · {mpg} MPG</span>
+                  <span className="text-ink/50">Vehicle</span>
+                  <span className="text-ink">{vehicleMake} {vehicleModel} · {mpg} MPG</span>
                 </div>
               )}
             </div>
 
             <div className="flex gap-3">
-              <button onClick={() => setStep(prev => prev - 1)} className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-white/15 text-white/50 hover:text-white hover:border-white/30 text-sm">
+              <button onClick={() => setStep(prev => prev - 1)} className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-ink/15 text-ink/50 hover:text-ink hover:border-ink/30 text-sm">
                 <ArrowLeft className="w-4 h-4" /> Back
               </button>
               <button
@@ -325,20 +326,20 @@ function SavedVehiclePicker({ onSelect }: { onSelect: (v: Vehicle) => void }) {
 
   return (
     <div className="space-y-2">
-      <label className="text-white/50 text-xs">Saved vehicles</label>
+      <label className="text-ink/50 text-xs">Saved vehicles</label>
       <div className="grid grid-cols-1 gap-2">
         {vehicles.map((v, i) => (
           <button key={i} onClick={() => onSelect(v)}
-            className="flex items-center gap-3 p-3 rounded-xl border border-white/10 bg-white/3 hover:border-emerald-500/40 hover:bg-emerald-500/5 transition-all text-left">
+            className="flex items-center gap-3 p-3 rounded-xl border border-ink/10 bg-ink/3 hover:border-emerald-500/40 hover:bg-emerald-500/5 transition-all text-left">
             <span className="text-lg">🚗</span>
             <div>
-              <div className="text-sm font-medium text-white">{v.year && `${v.year} `}{v.make} {v.model}</div>
-              <div className="text-xs text-white/40">{v.fuelEfficiency} MPG · {v.fuelType}</div>
+              <div className="text-sm font-medium text-ink">{v.year && `${v.year} `}{v.make} {v.model}</div>
+              <div className="text-xs text-ink/40">{v.fuelEfficiency} MPG · {v.fuelType}</div>
             </div>
           </button>
         ))}
       </div>
-      <div className="text-white/30 text-xs">Or enter manually below</div>
+      <div className="text-ink/30 text-xs">Or enter manually below</div>
     </div>
   )
 }

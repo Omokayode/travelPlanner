@@ -13,6 +13,8 @@ import '@fontsource/dm-sans/latin-500.css'
 import '@fontsource/dm-sans/latin-600.css'
 import './globals.css'
 import Toaster from '@/components/Toaster'
+import { ConfirmHost } from '@/components/ui/Confirm'
+import { themeInitScript } from '@/lib/theme'
 
 export const metadata: Metadata = {
   title: 'Trip by JKBLabs — Travel Planner',
@@ -22,15 +24,24 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#0b1121',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#f6f8fb' },
+    { media: '(prefers-color-scheme: dark)', color: '#0b1121' },
+  ],
+  viewportFit: 'cover', // lets the phone tab bar sit above the home indicator
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* eslint-disable-next-line react/no-danger -- tiny fixed script, applies the saved theme before paint */}
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className="antialiased">
         {children}
         <Toaster />
+        <ConfirmHost />
       </body>
     </html>
   )

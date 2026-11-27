@@ -38,7 +38,7 @@ function createCustomIcon(emoji: string, color = '#10b981') {
 function createStopIcon(emoji: string) {
   return L.divIcon({
     html: `<div style="
-      background: #1a2235;
+      background: rgb(var(--card));
       border: 1.5px solid #10b981;
       border-radius: 6px;
       width: 26px; height: 26px;
@@ -148,7 +148,7 @@ export default function LeafletMap({
             >
               <Popup>
                 <div className="text-sm font-medium">{segment.from.name}</div>
-                <div className="text-xs text-gray-400">Start</div>
+                <div className="text-xs text-ink-2">Start</div>
               </Popup>
             </Marker>
           )}
@@ -159,7 +159,7 @@ export default function LeafletMap({
             >
               <Popup>
                 <div className="text-sm font-medium">{segment.to.name}</div>
-                <div className="text-xs text-gray-400">End</div>
+                <div className="text-xs text-ink-2">End</div>
               </Popup>
             </Marker>
           )}

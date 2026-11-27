@@ -9,7 +9,7 @@ export default function WeatherStrip({ dayDate, lat, lng, locationName }: {
   const { weather, loading } = useWeather(lat, lng, dayDate)
 
   if (loading) return (
-    <div className="tp-card px-4 py-3 flex items-center gap-2 text-white/30 text-sm animate-pulse">
+    <div className="tp-card px-4 py-3 flex items-center gap-2 text-ink/30 text-sm animate-pulse">
       🌡️ Loading weather…
     </div>
   )
@@ -24,15 +24,15 @@ export default function WeatherStrip({ dayDate, lat, lng, locationName }: {
       <span className="text-3xl">{weather.icon}</span>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="text-white font-semibold">{weather.tempMax}°F</span>
-          <span className="text-white/40 text-sm">/ {weather.tempMin}°F</span>
-          <span className="text-white/50 text-sm">{weather.description}</span>
-          {locationName && <span className="text-white/30 text-xs truncate">· {locationName}</span>}
+          <span className="text-ink font-semibold">{weather.tempMax}°F</span>
+          <span className="text-ink/40 text-sm">/ {weather.tempMin}°F</span>
+          <span className="text-ink/50 text-sm">{weather.description}</span>
+          {locationName && <span className="text-ink/30 text-xs truncate">· {locationName}</span>}
         </div>
         <div className="flex gap-2 mt-0.5">
-          {rainy && <span className="text-xs text-blue-400">☔ {weather.precipitation}&quot; rain</span>}
-          {hot && <span className="text-xs text-orange-400">🌡️ Hot day</span>}
-          {cold && <span className="text-xs text-blue-300">🧥 Cold</span>}
+          {rainy && <span className="text-xs text-info">☔ {weather.precipitation}&quot; rain</span>}
+          {hot && <span className="text-xs text-warn">🌡️ Hot day</span>}
+          {cold && <span className="text-xs text-info">🧥 Cold</span>}
         </div>
       </div>
     </div>

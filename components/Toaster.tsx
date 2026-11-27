@@ -26,8 +26,8 @@ export default function Toaster() {
           className={
             'flex items-start gap-2 rounded-xl px-4 py-3 text-sm shadow-lg border backdrop-blur ' +
             (t.kind === 'error'
-              ? 'bg-red-950/90 border-red-500/30 text-red-100'
-              : 'bg-[#111827]/95 border-white/10 text-white/90')
+              ? 'bg-red-600 border-red-500/30 text-white'
+              : 'bg-surface/95 border-ink/10 text-ink/90')
           }
         >
           {t.kind === 'error' ? <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" /> : <Info className="w-4 h-4 mt-0.5 shrink-0" />}

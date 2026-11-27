@@ -3,8 +3,8 @@ export default function StatTile({ icon, label, value }: { icon: string; label: 
   return (
     <div className="tp-card flex flex-col items-center gap-0.5 py-3">
       <span className="text-base">{icon}</span>
-      <div className="text-sm font-semibold text-white">{value}</div>
-      <div className="text-[10px] text-white/30 uppercase tracking-wide">{label}</div>
+      <div className="text-sm font-semibold text-ink">{value}</div>
+      <div className="text-[10px] text-ink/30 uppercase tracking-wide">{label}</div>
     </div>
   )
 }

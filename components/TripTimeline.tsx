@@ -69,7 +69,7 @@ export default function TripTimeline({ trip }: Props) {
 
   return (
     <div className="tp-card p-4 overflow-x-auto">
-      <div className="text-xs font-medium text-white/40 uppercase tracking-wide mb-3">Trip Overview</div>
+      <div className="text-xs font-medium text-ink/40 uppercase tracking-wide mb-3">Trip Overview</div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ minHeight: `${Math.max(160, stops.length * 70)}px` }}>
         {/* Vertical line */}
         <line x1={LINE_X} y1={START_Y} x2={LINE_X} y2={END_Y}
