@@ -41,7 +41,6 @@ jobs:
           --health-cmd "pg_isready -U ci" --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       DATABASE_URL: postgresql://ci:ci-only-password@localhost:5432/ci
-      NODE_ENV: production
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -61,7 +60,7 @@ jobs:
             console.log(["scrypt",16384,8,1,s.toString("hex"),scryptSync(process.argv[1],s,32,{N:16384,r:8,p:1}).toString("hex")].join(":"))' "$E2E_PASSWORD")"
           cp -r .next/static .next/standalone/.next/static
           cp -r public .next/standalone/public
-          (cd .next/standalone && PORT=3000 HOSTNAME=127.0.0.1 node server.js > ../../server.log 2>&1 &)
+          (cd .next/standalone && NODE_ENV=production PORT=3000 HOSTNAME=127.0.0.1 node server.js > ../../server.log 2>&1 &)
           for i in $(seq 1 60); do curl -sf http://127.0.0.1:3000/api/health && break; sleep 1; done
           E2E_BASE_URL=http://localhost:3000 npx playwright test
       - if: failure()
