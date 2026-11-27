@@ -1,30 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import prisma from '@/lib/db'
-import { Trip } from '@/lib/types'
+import { HttpError, handler, parseBody } from '@/lib/http'
+import { tripCreateSchema } from '@/lib/schemas'
 
-export async function GET() {
-  try {
-    const trips = await prisma.trip.findMany({
-      include: { days: { orderBy: { dayNumber: 'asc' } } },
-      orderBy: { createdAt: 'desc' },
-    })
+export const dynamic = 'force-dynamic' // never pre-render or cache at build time
 
-    const result = trips.map(t => ({
+export const GET = handler(async () => {
+  const trips = await prisma.trip.findMany({
+    include: { days: { orderBy: { dayNumber: 'asc' } } },
+    orderBy: { createdAt: 'desc' },
+  })
+  return NextResponse.json(
+    trips.map((t) => ({
       ...t,
-      days: t.days.map(d => ({ ...(d.data as object), id: d.id })),
-    }))
+      days: t.days.map((d) => ({ ...(d.data as object), id: d.id })),
+    })),
+  )
+})
 
-    return NextResponse.json(result)
-  } catch (err) {
-    console.error(err)
-    return NextResponse.json({ error: 'Failed to fetch trips' }, { status: 500 })
-  }
-}
-
-export async function POST(req: NextRequest) {
+export const POST = handler(async (req: NextRequest) => {
+  const body = await parseBody(req, tripCreateSchema)
   try {
-    const body: Trip = await req.json()
-
     const trip = await prisma.trip.create({
       data: {
         id: body.id,
@@ -38,26 +35,27 @@ export async function POST(req: NextRequest) {
         totalBudget: body.totalBudget,
         tags: body.tags || [],
         isActive: body.isActive || false,
-        vehicle: body.vehicle ? (body.vehicle as object) : undefined,
-        homeCoords: body.homeCoords ? (body.homeCoords as object) : undefined,
+        vehicle: (body.vehicle as Prisma.InputJsonObject) ?? undefined,
+        homeCoords: (body.homeCoords as Prisma.InputJsonObject) ?? undefined,
         days: {
-          create: (body.days || []).map(d => ({
+          create: (body.days || []).map((d) => ({
             id: d.id,
             date: d.date,
             dayNumber: d.dayNumber,
-            data: d as object,
+            data: d as Prisma.InputJsonObject,
           })),
         },
       },
       include: { days: true },
     })
-
     return NextResponse.json({
       ...trip,
-      days: trip.days.map(d => ({ ...(d.data as object), id: d.id })),
+      days: trip.days.map((d) => ({ ...(d.data as object), id: d.id })),
     })
   } catch (err) {
-    console.error(err)
-    return NextResponse.json({ error: 'Failed to create trip' }, { status: 500 })
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      throw new HttpError(409, 'A trip or day with that id already exists')
+    }
+    throw err
   }
-}
+})

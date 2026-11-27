@@ -68,10 +68,27 @@ prisma/                            schema + migrations
 scripts/start.sh                   container entrypoint
 ```
 
+## Login
+
+The whole app sits behind one household password. The server needs two settings (in `.env` for
+Docker, or the environment):
+
+| Setting | What |
+|---|---|
+| `SESSION_SECRET` | random string, 32+ characters — e.g. `openssl rand -hex 32` |
+| `APP_PASSWORD_HASH` | made by `node scripts/hash-password.mjs` (asks for the password, prints the line) |
+
+With the Docker image: `docker run --rm -it <image> node scripts/hash-password.mjs >> .env`.
+If either is missing, sign-in is refused (the app fails closed). Sessions last 30 days; failed
+sign-ins are limited to 10 per 15 minutes per address. For local development only you can set
+`AUTH_DISABLED=true`.
+
 ## Immich
 
-Set the Immich URL and an API key on the Settings page. Photos are matched to days by the date they
-were taken; you can also pick an album per trip.
+Set the Immich URL and an API key on the Settings page (or `IMMICH_URL` / `IMMICH_API_KEY` in the
+environment, which take priority). The key stays on the server: photos are streamed through
+`/api/immich/assets/...`, and the Settings page only shows whether a key is saved. Photos are
+matched to days by the date they were taken; you can also pick an album per trip.
 
 ## Releasing
 
@@ -83,4 +100,4 @@ pushes it to Docker Hub (`omokayj/travelplanner`). The current version is kept i
 
 - Toll estimates are rough (about $0.04/mile); accurate tolls need a paid API.
 - The public OSRM and Overpass servers are rate-limited; if suggestions come back empty, try again.
-- There is no login yet — keep the app on a private network.
+- One shared password, no per-person accounts.

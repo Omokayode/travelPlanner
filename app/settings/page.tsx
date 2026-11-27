@@ -6,12 +6,14 @@ import Navbar from '@/components/Navbar'
 import { Vehicle, FuelType } from '@/lib/types'
 
 interface AppSettings {
-  immichUrl?: string
-  immichApiKey?: string
-  immichAlbumId?: string
-  gasPriceRegular?: number
-  gasPricePremium?: number
-  gasPriceDiesel?: number
+  immichUrl?: string | null
+  immichAlbumId?: string | null
+  immichKeySet?: boolean
+  immichFromEnv?: boolean
+  immichConfigured?: boolean
+  gasPriceRegular?: number | null
+  gasPricePremium?: number | null
+  gasPriceDiesel?: number | null
   savedVehicles?: Vehicle[]
 }
 
@@ -26,6 +28,7 @@ const DEFAULT_GAS = { regular: 3.45, premium: 3.95, diesel: 3.65 }
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<AppSettings>({})
+  const [newKey, setNewKey] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -44,17 +47,18 @@ export default function SettingsPage() {
       })
   }, [])
 
-  const save = async (patch: Partial<AppSettings>) => {
-    const updated = { ...settings, ...patch }
-    setSettings(updated)
+  const save = async (patch: Partial<AppSettings> & { immichApiKey?: string; clearImmichApiKey?: boolean }) => {
+    setSettings(s => ({ ...s, ...patch }))
     setSaving(true)
     setSaved(false)
     try {
-      await fetch('/api/settings', {
+      const res = await fetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updated),
+        body: JSON.stringify(patch),
       })
+      if (!res.ok) { alert((await res.json()).error || 'Could not save'); return }
+      setSettings(await res.json())
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     } finally { setSaving(false) }
@@ -123,12 +127,19 @@ export default function SettingsPage() {
             </div>
             <div>
               <label className="text-white/50 text-xs mb-1 block">API Key</label>
-              <input className="tp-input w-full font-mono text-sm" type="password"
-                placeholder="Your Immich API key"
-                value={settings.immichApiKey || ''}
-                onChange={e => setSettings(s => ({ ...s, immichApiKey: e.target.value }))}
-                onBlur={() => save({ immichApiKey: settings.immichApiKey })} />
-              <div className="text-white/30 text-xs mt-1">Immich → Account Settings → API Keys</div>
+              <input className="tp-input w-full font-mono text-sm" type="password" autoComplete="off"
+                placeholder={settings.immichKeySet ? 'Saved — type a new key to replace it' : 'Your Immich API key'}
+                value={newKey}
+                onChange={e => setNewKey(e.target.value)}
+                onBlur={async () => { if (newKey.trim()) { await save({ immichApiKey: newKey.trim() }); setNewKey('') } }} />
+              <div className="text-white/30 text-xs mt-1">
+                Immich → Account Settings → API Keys. The key is kept on the server and never shown again.
+                {settings.immichFromEnv && ' (The server environment also sets Immich; it takes priority.)'}
+                {settings.immichKeySet && (
+                  <button type="button" className="ml-2 text-red-400/70 hover:text-red-400"
+                    onClick={() => save({ clearImmichApiKey: true })}>Remove saved key</button>
+                )}
+              </div>
             </div>
             <div>
               <label className="text-white/50 text-xs mb-1 block">Default Album ID (optional)</label>
@@ -157,7 +168,7 @@ export default function SettingsPage() {
                     placeholder={DEFAULT_GAS[type].toFixed(2)}
                     value={settings[`gasPrice${type.charAt(0).toUpperCase() + type.slice(1)}` as keyof AppSettings] as number || ''}
                     onChange={e => setSettings(s => ({ ...s, [`gasPrice${type.charAt(0).toUpperCase() + type.slice(1)}`]: parseFloat(e.target.value) || undefined }))}
-                    onBlur={() => save(settings)} />
+                    onBlur={() => save({ gasPriceRegular: settings.gasPriceRegular ?? null, gasPricePremium: settings.gasPricePremium ?? null, gasPriceDiesel: settings.gasPriceDiesel ?? null })} />
                 </div>
               </div>
             ))}

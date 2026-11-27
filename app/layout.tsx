@@ -1,22 +1,17 @@
 // app/layout.tsx
 import type { Metadata, Viewport } from 'next'
-import { Cormorant_Garamond, DM_Sans } from 'next/font/google'
+// Fonts are bundled (@fontsource) rather than fetched from Google at build time,
+// which made builds fail intermittently. --font-display / --font-body are set in globals.css.
+import '@fontsource/cormorant-garamond/latin-400.css'
+import '@fontsource/cormorant-garamond/latin-400-italic.css'
+import '@fontsource/cormorant-garamond/latin-500.css'
+import '@fontsource/cormorant-garamond/latin-600.css'
+import '@fontsource/cormorant-garamond/latin-700.css'
+import '@fontsource/dm-sans/latin-300.css'
+import '@fontsource/dm-sans/latin-400.css'
+import '@fontsource/dm-sans/latin-500.css'
+import '@fontsource/dm-sans/latin-600.css'
 import './globals.css'
-
-const display = Cormorant_Garamond({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  style: ['normal', 'italic'],
-  variable: '--font-display',
-  display: 'swap',
-})
-
-const body = DM_Sans({
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '600'],
-  variable: '--font-body',
-  display: 'swap',
-})
 
 export const metadata: Metadata = {
   title: 'Trip by JKBLabs — Travel Planner',
@@ -31,7 +26,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${display.variable} ${body.variable}`}>
+    <html lang="en">
       <body className="antialiased">
         {children}
       </body>

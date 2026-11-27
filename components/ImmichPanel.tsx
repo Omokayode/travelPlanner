@@ -11,7 +11,8 @@ interface ImmichAsset {
   city?: string
 }
 interface AppSettings {
-  immichUrl?: string; immichApiKey?: string; immichAlbumId?: string
+  immichAlbumId?: string | null
+  immichConfigured?: boolean
 }
 
 interface Props {
@@ -39,7 +40,7 @@ export default function ImmichPanel({ tripId, dayDate, startDate, endDate }: Pro
       .then(r => r.json())
       .then((s: AppSettings) => {
         setAppSettings(s)
-        if (s.immichUrl && s.immichApiKey) {
+        if (s.immichConfigured) {
           setConfigured(true)
           fetchAlbums(s)
         }
@@ -47,13 +48,10 @@ export default function ImmichPanel({ tripId, dayDate, startDate, endDate }: Pro
   }, [])
 
   const fetchAlbums = async (s: AppSettings) => {
-    if (!s.immichUrl || !s.immichApiKey) return
     setLoadingAlbums(true)
     setError('')
     try {
-      const res = await fetch(
-        `/api/immich?action=albums&apiKey=${encodeURIComponent(s.immichApiKey!)}&baseUrl=${encodeURIComponent(s.immichUrl!)}`
-      )
+      const res = await fetch('/api/immich?action=albums')
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Failed to fetch albums'); return }
       setAlbums(data)
@@ -69,21 +67,18 @@ export default function ImmichPanel({ tripId, dayDate, startDate, endDate }: Pro
 
       if (defaultId) {
         setSelectedAlbum(defaultId)
-        fetchAssets(defaultId, s)
+        fetchAssets(defaultId)
       }
     } catch { setError('Could not connect to Immich') }
     finally { setLoadingAlbums(false) }
   }
 
-  const fetchAssets = async (albumId: string, s?: AppSettings) => {
-    const cfg = s || appSettings
-    if (!cfg?.immichUrl || !cfg?.immichApiKey || !albumId) return
+  const fetchAssets = async (albumId: string) => {
+    if (!albumId) return
     setLoading(true)
     setError('')
     try {
-      const res = await fetch(
-        `/api/immich?action=album-assets&albumId=${albumId}&apiKey=${encodeURIComponent(cfg.immichApiKey!)}&baseUrl=${encodeURIComponent(cfg.immichUrl!)}`
-      )
+      const res = await fetch(`/api/immich?action=album-assets&albumId=${encodeURIComponent(albumId)}`)
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Failed'); return }
       setAssets(data)
@@ -106,9 +101,6 @@ export default function ImmichPanel({ tripId, dayDate, startDate, endDate }: Pro
     })
     return assets
   })()
-
-  const apiKey = appSettings?.immichApiKey || ''
-  const baseUrl = appSettings?.immichUrl || ''
 
   // Not configured
   if (!configured && appSettings !== null) {
@@ -166,7 +158,7 @@ export default function ImmichPanel({ tripId, dayDate, startDate, endDate }: Pro
             <button key={asset.id} onClick={() => setLightbox(asset)}
               className="aspect-square rounded-xl overflow-hidden border border-white/8 hover:border-emerald-500/40 transition-all group">
               <img
-                src={`${asset.thumbUrl}&apiKey=${apiKey}`}
+                src={asset.thumbUrl}
                 alt={asset.originalFileName}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
@@ -186,12 +178,12 @@ export default function ImmichPanel({ tripId, dayDate, startDate, endDate }: Pro
       {lightbox && (
         <div className="fixed inset-0 bg-black/95 z-[1000] flex flex-col items-center justify-center p-4"
           onClick={() => setLightbox(null)}>
-          <img src={`${lightbox.thumbUrl}&apiKey=${apiKey}`} alt={lightbox.originalFileName}
+          <img src={lightbox.thumbUrl} alt={lightbox.originalFileName}
             className="max-w-full max-h-[80vh] rounded-xl object-contain" onClick={e => e.stopPropagation()} />
           <div className="mt-4 text-center space-y-1">
             {lightbox.takenAt && <div className="text-white/50 text-sm">{new Date(lightbox.takenAt).toLocaleString()}</div>}
             {lightbox.city && <div className="text-white/40 text-xs">{lightbox.city}</div>}
-            <a href={`${baseUrl}/api/assets/${lightbox.id}/original?apiKey=${apiKey}`}
+            <a href={lightbox.fullUrl}
               target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-emerald-400 text-xs hover:text-emerald-300 mt-2"
               onClick={e => e.stopPropagation()}>

@@ -4,6 +4,8 @@
 @tailwind utilities;
 
 :root {
+  --font-display: 'Cormorant Garamond';
+  --font-body: 'DM Sans';
   --bg-base: #0b1121;
   --bg-surface: #111827;
   --bg-card: #1a2235;

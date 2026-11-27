@@ -1,52 +1,58 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
+import { handler, notFound, parseBody } from '@/lib/http'
+import { packingItemSchema, packingListSchema } from '@/lib/schemas'
 
-export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
-  try {
-    const items = await prisma.packingItem.findMany({
-      where: { tripId: params.id },
-      orderBy: [{ category: 'asc' }, { name: 'asc' }],
-    })
-    return NextResponse.json(items)
-  } catch (err) {
-    console.error(err)
-    return NextResponse.json({ error: 'Failed to fetch packing list' }, { status: 500 })
-  }
+type Ctx = { params: { id: string } }
+
+async function requireTrip(id: string) {
+  const trip = await prisma.trip.findUnique({ where: { id }, select: { id: true } })
+  if (!trip) throw notFound()
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  try {
-    const body = await req.json()
-    const item = await prisma.packingItem.create({
-      data: {
+export const GET = handler(async (_: NextRequest, { params }: Ctx) => {
+  const items = await prisma.packingItem.findMany({
+    where: { tripId: params.id },
+    orderBy: [{ category: 'asc' }, { name: 'asc' }],
+  })
+  return NextResponse.json(items)
+})
+
+export const POST = handler(async (req: NextRequest, { params }: Ctx) => {
+  const body = await parseBody(req, packingItemSchema)
+  await requireTrip(params.id)
+  const item = await prisma.packingItem.create({
+    data: {
+      tripId: params.id,
+      name: body.name,
+      category: body.category,
+      packed: false,
+      quantity: body.quantity || 1,
+      notes: body.notes ?? null,
+      essential: body.essential ?? false,
+    },
+  })
+  return NextResponse.json(item)
+})
+
+// Bulk replace (template loading) — all or nothing.
+export const PUT = handler(async (req: NextRequest, { params }: Ctx) => {
+  const items = await parseBody(req, packingListSchema)
+  await requireTrip(params.id)
+  const result = await prisma.$transaction(async (tx) => {
+    await tx.packingItem.deleteMany({ where: { tripId: params.id } })
+    await tx.packingItem.createMany({
+      data: items.map((i) => ({
         tripId: params.id,
-        name: body.name,
-        category: body.category,
-        packed: false,
-        quantity: body.quantity || 1,
-        notes: body.notes ?? null,
-        essential: body.essential ?? false,
-      },
+        name: i.name,
+        category: i.category,
+        packed: i.packed ?? false,
+        quantity: i.quantity || 1,
+        notes: i.notes ?? null,
+        essential: i.essential ?? false,
+      })),
     })
-    return NextResponse.json(item)
-  } catch (err) {
-    console.error(err)
-    return NextResponse.json({ error: 'Failed to add item' }, { status: 500 })
-  }
-}
-
-// Bulk replace (for template loading)
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
-  try {
-    const items = await req.json()
-    await prisma.packingItem.deleteMany({ where: { tripId: params.id } })
-    await prisma.packingItem.createMany({
-      data: items.map((item: any) => ({ ...item, tripId: params.id })),
-    })
-    const result = await prisma.packingItem.findMany({ where: { tripId: params.id } })
-    return NextResponse.json(result)
-  } catch (err) {
-    console.error(err)
-    return NextResponse.json({ error: 'Failed to replace packing list' }, { status: 500 })
-  }
-}
+    return tx.packingItem.findMany({ where: { tripId: params.id } })
+  })
+  return NextResponse.json(result)
+})

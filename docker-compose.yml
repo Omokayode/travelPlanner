@@ -19,11 +19,16 @@ services:
     build: .
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      # this machine only; put a reverse proxy in front to reach it from elsewhere
+      - "127.0.0.1:3000:3000"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-tripbyjkblabs}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-tripbyjkblabs}
       NODE_ENV: production
-      # IMMICH_URL: https://photos.yourdomain.com
+      # Login (see README): a random 32+ character secret, and the hash from scripts/hash-password.mjs
+      SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in .env (see README)}
+      APP_PASSWORD_HASH: ${APP_PASSWORD_HASH:-}
+      # Optional — otherwise set on the Settings page:
+      # IMMICH_URL: http://immich_server:2283
       # IMMICH_API_KEY: your_immich_api_key
     depends_on:
       db:

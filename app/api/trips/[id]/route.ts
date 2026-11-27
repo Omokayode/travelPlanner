@@ -1,67 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import prisma from '@/lib/db'
-import { Trip } from '@/lib/types'
+import { handler, notFound, parseBody } from '@/lib/http'
+import { tripUpdateSchema } from '@/lib/schemas'
 
-export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
-  try {
-    const trip = await prisma.trip.findUnique({
-      where: { id: params.id },
-      include: { days: { orderBy: { dayNumber: 'asc' } } },
-    })
-    if (!trip) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+type Ctx = { params: { id: string } }
 
-    return NextResponse.json({
-      ...trip,
-      lodgings: (trip.lodgings as object[] | null) ?? [],
-      days: trip.days.map(d => ({ ...(d.data as object), id: d.id })),
-    })
-  } catch (err) {
-    console.error(err)
-    return NextResponse.json({ error: 'Failed to fetch trip' }, { status: 500 })
+function view(trip: Prisma.TripGetPayload<{ include: { days: true } }>) {
+  return {
+    ...trip,
+    lodgings: (trip.lodgings as object[] | null) ?? [],
+    days: trip.days.map((d) => ({ ...(d.data as object), id: d.id })),
   }
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
-  try {
-    const body: Partial<Trip> = await req.json()
+export const GET = handler(async (_: NextRequest, { params }: Ctx) => {
+  const trip = await prisma.trip.findUnique({
+    where: { id: params.id },
+    include: { days: { orderBy: { dayNumber: 'asc' } } },
+  })
+  if (!trip) throw notFound()
+  return NextResponse.json(view(trip))
+})
 
-    const trip = await prisma.trip.update({
-      where: { id: params.id },
-      data: {
-        name: body.name,
-        description: body.description,
-        startDate: body.startDate,
-        endDate: body.endDate,
-        type: body.type,
-        visitedCities: body.visitedCities,
-        coverPhotoUrl: body.coverPhotoUrl,
-        totalBudget: body.totalBudget,
-        tags: body.tags,
-        isActive: body.isActive,
-        vehicle: body.vehicle ? (body.vehicle as object) : undefined,
-        homeCoords: body.homeCoords ? (body.homeCoords as object) : undefined,
-        lodgings: body.lodgings ? (body.lodgings as object) : undefined,
-      },
-      include: { days: { orderBy: { dayNumber: 'asc' } } },
-    })
+export const PUT = handler(async (req: NextRequest, { params }: Ctx) => {
+  const body = await parseBody(req, tripUpdateSchema)
+  const trip = await prisma.trip.update({
+    where: { id: params.id },
+    data: {
+      name: body.name,
+      description: body.description,
+      startDate: body.startDate,
+      endDate: body.endDate,
+      type: body.type,
+      visitedCities: body.visitedCities,
+      coverPhotoUrl: body.coverPhotoUrl,
+      totalBudget: body.totalBudget,
+      tags: body.tags,
+      isActive: body.isActive,
+      vehicle: body.vehicle ? (body.vehicle as Prisma.InputJsonObject) : undefined,
+      homeCoords: body.homeCoords ? (body.homeCoords as Prisma.InputJsonObject) : undefined,
+      lodgings: body.lodgings ? (body.lodgings as Prisma.InputJsonArray) : undefined,
+    },
+    include: { days: { orderBy: { dayNumber: 'asc' } } },
+  })
+  return NextResponse.json(view(trip))
+})
 
-    return NextResponse.json({
-      ...trip,
-      lodgings: (trip.lodgings as object[] | null) ?? [],
-      days: trip.days.map(d => ({ ...(d.data as object), id: d.id })),
-    })
-  } catch (err) {
-    console.error(err)
-    return NextResponse.json({ error: 'Failed to update trip' }, { status: 500 })
-  }
-}
-
-export async function DELETE(_: NextRequest, { params }: { params: { id: string } }) {
-  try {
-    await prisma.trip.delete({ where: { id: params.id } })
-    return NextResponse.json({ success: true })
-  } catch (err) {
-    console.error(err)
-    return NextResponse.json({ error: 'Failed to delete trip' }, { status: 500 })
-  }
-}
+export const DELETE = handler(async (_: NextRequest, { params }: Ctx) => {
+  await prisma.trip.delete({ where: { id: params.id } })
+  return NextResponse.json({ success: true })
+})

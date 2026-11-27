@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Plus, Compass, Home, Settings } from 'lucide-react'
+import { Plus, Compass, Home, Settings, LogOut } from 'lucide-react'
 import clsx from 'clsx'
 
 export default function Navbar() {
@@ -24,6 +24,18 @@ export default function Navbar() {
           <NavLink href="/" icon={<Home className="w-4 h-4" />} label="Trips" active={pathname === '/'} />
           <NavLink href="/trips/new" icon={<Plus className="w-4 h-4" />} label="New Trip" active={pathname === '/trips/new'} />
           <NavLink href="/settings" icon={<Settings className="w-4 h-4" />} label="Settings" active={pathname === '/settings'} />
+          <button
+            type="button"
+            title="Sign out"
+            aria-label="Sign out"
+            onClick={async () => {
+              await fetch('/api/auth/logout', { method: 'POST' })
+              window.location.href = '/login'
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-[#94a3b8] hover:text-[#f1f5f9] hover:bg-[#1a2235] transition-all duration-200"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </nav>
       </div>
     </header>

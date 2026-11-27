@@ -1,79 +1,75 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import prisma from '@/lib/db'
-import { Day } from '@/lib/types'
+import { HttpError, handler, notFound, parseBody } from '@/lib/http'
+import { daySchema, idSchema } from '@/lib/schemas'
 
-export async function PUT(
-  req: NextRequest,
-  { params }: { params: { id: string; dayId: string } }
-) {
-  try {
-    const body: Day = await req.json()
+type Ctx = { params: { id: string; dayId: string } }
 
-    const day = await prisma.day.upsert({
-      where: { id: params.dayId },
-      create: {
-        id: params.dayId,
-        tripId: params.id,
-        date: body.date,
-        dayNumber: body.dayNumber,
-        data: body as object,
-      },
-      update: {
-        date: body.date,
-        dayNumber: body.dayNumber,
-        data: body as object,
-      },
-    })
+interface DayBlob {
+  visited?: boolean
+  startCity?: string
+  endCity?: string
+  segments?: {
+    from?: { city?: string; state?: string; name?: string }
+    to?: { city?: string; state?: string; name?: string }
+    stops?: { location?: { city?: string; state?: string; name?: string } }[]
+  }[]
+}
 
-    // Always recalculate visitedCities from ALL visited days
-    // so unchecking a day removes its cities correctly
-    const trip = await prisma.trip.findUnique({
-      where: { id: params.id },
-      include: { days: { orderBy: { dayNumber: 'asc' } } },
-    })
-    if (trip) {
-      const citiesToAdd = new Set<string>()
-
-      for (const d of trip.days) {
-        const dayData = d.id === params.dayId ? body : (d.data as any)
-        if (!dayData?.visited) continue
-
-        const addCity = (v: string | undefined) => { if (v?.trim()) citiesToAdd.add(v.trim()) }
-
-        addCity(dayData.startCity)
-        addCity(dayData.endCity)
-
-        for (const seg of (dayData.segments || [])) {
-          addCity(seg.from?.city || seg.from?.state || seg.from?.name)
-          addCity(seg.to?.city || seg.to?.state || seg.to?.name)
-          for (const stop of (seg.stops || [])) {
-            addCity(stop.location?.city || stop.location?.state || stop.location?.name)
-          }
-        }
-      }
-
-      await prisma.trip.update({
-        where: { id: params.id },
-        data: { visitedCities: Array.from(citiesToAdd) },
-      })
+function visitedCities(days: DayBlob[]): string[] {
+  const cities = new Set<string>()
+  const add = (v: string | undefined) => {
+    if (v?.trim()) cities.add(v.trim())
+  }
+  for (const d of days) {
+    if (!d?.visited) continue
+    add(d.startCity)
+    add(d.endCity)
+    for (const seg of d.segments || []) {
+      add(seg.from?.city || seg.from?.state || seg.from?.name)
+      add(seg.to?.city || seg.to?.state || seg.to?.name)
+      for (const stop of seg.stops || []) add(stop.location?.city || stop.location?.state || stop.location?.name)
     }
-
-    return NextResponse.json({ ...(day.data as object), id: day.id })
-  } catch (err) {
-    console.error(err)
-    return NextResponse.json({ error: 'Failed to update day' }, { status: 500 })
   }
+  return Array.from(cities)
 }
 
-export async function DELETE(
-  _: NextRequest,
-  { params }: { params: { id: string; dayId: string } }
-) {
-  try {
-    await prisma.day.delete({ where: { id: params.dayId } })
-    return NextResponse.json({ success: true })
-  } catch (err) {
-    console.error(err)
-    return NextResponse.json({ error: 'Failed to delete day' }, { status: 500 })
-  }
-}
+export const PUT = handler(async (req: NextRequest, { params }: Ctx) => {
+  if (!idSchema.safeParse(params.dayId).success) throw new HttpError(400, 'Invalid day id')
+  const body = await parseBody(req, daySchema)
+  const data = { ...body, id: params.dayId } as Prisma.InputJsonObject
+
+  const day = await prisma.$transaction(async (tx) => {
+    const trip = await tx.trip.findUnique({ where: { id: params.id }, select: { id: true } })
+    if (!trip) throw notFound()
+    const existing = await tx.day.findUnique({ where: { id: params.dayId }, select: { tripId: true } })
+    if (existing && existing.tripId !== params.id) throw notFound()
+
+    const saved = await tx.day.upsert({
+      where: { id: params.dayId },
+      create: { id: params.dayId, tripId: params.id, date: body.date, dayNumber: body.dayNumber, data },
+      update: { date: body.date, dayNumber: body.dayNumber, data },
+    })
+
+    // Recalculate visitedCities from all visited days, so un-checking a day removes its cities.
+    const days = await tx.day.findMany({
+      where: { tripId: params.id },
+      orderBy: { dayNumber: 'asc' },
+      select: { data: true },
+    })
+    await tx.trip.update({
+      where: { id: params.id },
+      data: { visitedCities: visitedCities(days.map((d) => d.data as DayBlob)) },
+    })
+    return saved
+  })
+
+  return NextResponse.json({ ...(day.data as object), id: day.id })
+})
+
+export const DELETE = handler(async (_: NextRequest, { params }: Ctx) => {
+  const { count } = await prisma.day.deleteMany({ where: { id: params.dayId, tripId: params.id } })
+  if (!count) throw notFound()
+  return NextResponse.json({ success: true })
+})

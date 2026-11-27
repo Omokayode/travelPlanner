@@ -1,27 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import prisma from '@/lib/db'
+import { handler, notFound, parseBody } from '@/lib/http'
+import { budgetSchema } from '@/lib/schemas'
 
-export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
-  try {
-    const trip = await prisma.trip.findUnique({ where: { id: params.id } })
-    if (!trip) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    return NextResponse.json((trip as any).proposedBudget ?? [])
-  } catch (err) {
-    console.error(err)
-    return NextResponse.json({ error: 'Failed' }, { status: 500 })
-  }
-}
+type Ctx = { params: { id: string } }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
-  try {
-    const body = await req.json()
-    await prisma.trip.update({
-      where: { id: params.id },
-      data: { proposedBudget: body } as any,
-    })
-    return NextResponse.json(body)
-  } catch (err) {
-    console.error(err)
-    return NextResponse.json({ error: 'Failed' }, { status: 500 })
-  }
-}
+export const GET = handler(async (_: NextRequest, { params }: Ctx) => {
+  const trip = await prisma.trip.findUnique({ where: { id: params.id }, select: { proposedBudget: true } })
+  if (!trip) throw notFound()
+  return NextResponse.json(trip.proposedBudget ?? [])
+})
+
+export const PUT = handler(async (req: NextRequest, { params }: Ctx) => {
+  const body = await parseBody(req, budgetSchema)
+  await prisma.trip.update({
+    where: { id: params.id },
+    data: { proposedBudget: body as Prisma.InputJsonArray },
+  })
+  return NextResponse.json(body)
+})
