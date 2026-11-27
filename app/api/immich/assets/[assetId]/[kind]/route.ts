@@ -23,6 +23,7 @@ export async function GET(_req: NextRequest, { params }: { params: { assetId: st
     return new NextResponse(upstream.body, { status: 200, headers })
   } catch (err) {
     const status = err instanceof ImmichError ? err.status : 502
+    console.error(`Immich ${kind} failed`, err instanceof ImmichError ? err.status : err)
     return NextResponse.json({ error: 'Image unavailable' }, { status: status === 404 ? 404 : 502 })
   }
 }

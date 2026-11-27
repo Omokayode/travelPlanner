@@ -10,6 +10,7 @@ interface AppSettings {
   immichAlbumId?: string | null
   immichKeySet?: boolean
   immichFromEnv?: boolean
+  immichUrlFromEnv?: boolean
   immichConfigured?: boolean
   gasPriceRegular?: number | null
   gasPricePremium?: number | null
@@ -29,6 +30,8 @@ const DEFAULT_GAS = { regular: 3.45, premium: 3.95, diesel: 3.65 }
 export default function SettingsPage() {
   const [settings, setSettings] = useState<AppSettings>({})
   const [newKey, setNewKey] = useState('')
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -62,6 +65,28 @@ export default function SettingsPage() {
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     } finally { setSaving(false) }
+  }
+
+  const saveKey = async () => {
+    const key = newKey.trim()
+    if (!key) return
+    await save({ immichApiKey: key })
+    setNewKey('')
+    setTestResult(null)
+  }
+
+  const testImmich = async () => {
+    setTesting(true)
+    setTestResult(null)
+    try {
+      const res = await fetch('/api/immich?action=ping')
+      const data = await res.json()
+      setTestResult(res.ok
+        ? { ok: true, text: `Connected — ${data.albums} album${data.albums === 1 ? '' : 's'} visible` }
+        : { ok: false, text: data.error || 'Could not reach Immich' })
+    } catch {
+      setTestResult({ ok: false, text: 'Could not reach the server' })
+    } finally { setTesting(false) }
   }
 
   const addVehicle = async () => {
@@ -120,35 +145,47 @@ export default function SettingsPage() {
           <div className="space-y-3">
             <div>
               <label className="text-white/50 text-xs mb-1 block">Server URL</label>
-              <input className="tp-input w-full" placeholder="https://photos.yourdomain.com"
-                value={settings.immichUrl || ''}
-                onChange={e => setSettings(s => ({ ...s, immichUrl: e.target.value }))}
-                onBlur={() => save({ immichUrl: settings.immichUrl })} />
+              {settings.immichUrlFromEnv ? (
+                <div className="text-white/60 text-sm">Set by the server (internal Immich address)</div>
+              ) : (
+                <input className="tp-input w-full" placeholder="https://photos.yourdomain.com"
+                  value={settings.immichUrl || ''}
+                  onChange={e => setSettings(s => ({ ...s, immichUrl: e.target.value }))}
+                  onBlur={() => save({ immichUrl: settings.immichUrl })} />
+              )}
             </div>
             <div>
-              <label className="text-white/50 text-xs mb-1 block">API Key</label>
-              <input className="tp-input w-full font-mono text-sm" type="password" autoComplete="off"
-                placeholder={settings.immichKeySet ? 'Saved — type a new key to replace it' : 'Your Immich API key'}
-                value={newKey}
-                onChange={e => setNewKey(e.target.value)}
-                onBlur={async () => { if (newKey.trim()) { await save({ immichApiKey: newKey.trim() }); setNewKey('') } }} />
+              <label className="text-white/50 text-xs mb-1 block">
+                API Key {settings.immichKeySet && <span className="text-emerald-400 ml-1">● saved</span>}
+              </label>
+              <div className="flex gap-2">
+                <input className="tp-input w-full font-mono text-sm" type="password" autoComplete="off"
+                  placeholder={settings.immichKeySet ? 'Type a new key to replace the saved one' : 'Paste your Immich API key'}
+                  value={newKey}
+                  onChange={e => setNewKey(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') saveKey() }} />
+                <button type="button" onClick={saveKey} disabled={!newKey.trim() || saving}
+                  className="shrink-0 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 text-white text-sm font-medium">
+                  Save key
+                </button>
+              </div>
               <div className="text-white/30 text-xs mt-1">
-                Immich → Account Settings → API Keys. The key is kept on the server and never shown again.
-                {settings.immichFromEnv && ' (The server environment also sets Immich; it takes priority.)'}
+                Immich → Account Settings → API Keys. Permissions needed: album.read, asset.read, asset.view,
+                asset.download. The key is kept on the server and never shown again.
                 {settings.immichKeySet && (
                   <button type="button" className="ml-2 text-red-400/70 hover:text-red-400"
                     onClick={() => save({ clearImmichApiKey: true })}>Remove saved key</button>
                 )}
               </div>
             </div>
-            <div>
-              <label className="text-white/50 text-xs mb-1 block">Default Album ID (optional)</label>
-              <input className="tp-input w-full font-mono text-sm"
-                placeholder="Leave blank to pick per-trip"
-                value={settings.immichAlbumId || ''}
-                onChange={e => setSettings(s => ({ ...s, immichAlbumId: e.target.value }))}
-                onBlur={() => save({ immichAlbumId: settings.immichAlbumId })} />
-              <div className="text-white/30 text-xs mt-1">Get the album ID from your Immich URL when viewing an album</div>
+            <div className="flex items-center gap-3">
+              <button type="button" onClick={testImmich} disabled={testing}
+                className="px-3 py-1.5 rounded-lg border border-white/10 hover:border-emerald-500/40 text-white/80 text-sm">
+                {testing ? 'Testing…' : 'Test connection'}
+              </button>
+              {testResult && (
+                <span className={testResult.ok ? 'text-emerald-400 text-sm' : 'text-red-400 text-sm'}>{testResult.text}</span>
+              )}
             </div>
           </div>
         </section>

@@ -51,6 +51,7 @@ function publicView(s: Stored) {
     ...rest,
     immichKeySet: Boolean(immichApiKey),
     immichFromEnv: Boolean(process.env.IMMICH_URL && process.env.IMMICH_API_KEY),
+    immichUrlFromEnv: Boolean(process.env.IMMICH_URL),
     immichConfigured: Boolean((process.env.IMMICH_URL || s.immichUrl) && (process.env.IMMICH_API_KEY || immichApiKey)),
   }
 }
