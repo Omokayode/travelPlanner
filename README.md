@@ -78,7 +78,9 @@ Docker, or the environment):
 | `SESSION_SECRET` | random string, 32+ characters — e.g. `openssl rand -hex 32` |
 | `APP_PASSWORD_HASH` | made by `node scripts/hash-password.mjs` (asks for the password, prints the line) |
 
-With the Docker image: `docker run --rm -it <image> node scripts/hash-password.mjs >> .env`.
+With the Docker image (from the folder holding `.env`):
+`docker run --rm -it --user root -v "$PWD":/cfg <image> node scripts/hash-password.mjs --append /cfg/.env`
+— it replaces any earlier `APP_PASSWORD_HASH` line and leaves the rest of the file alone.
 If either is missing, sign-in is refused (the app fails closed). Sessions last 30 days; failed
 sign-ins are limited to 10 per 15 minutes per address. For local development only you can set
 `AUTH_DISABLED=true`.
