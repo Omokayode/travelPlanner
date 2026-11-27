@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { USER_AGENT } from '@/lib/config'
 import { v4 as uuidv4 } from 'uuid'
-import { StopType } from '@/lib/types'
+import { z } from 'zod'
+import { OverpassElement, StopType } from '@/lib/types'
+import { minDistanceToRoute } from '@/lib/domain/geo'
 
 // Sample N evenly-spaced points along a GeoJSON linestring
 function sampleRoutePoints(
@@ -19,36 +21,23 @@ function sampleRoutePoints(
   return points
 }
 
-// Haversine distance in miles
-function distanceMiles(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 3958.8
-  const dLat = ((lat2 - lat1) * Math.PI) / 180
-  const dLng = ((lng2 - lng1) * Math.PI) / 180
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) ** 2
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-}
 
-// Find the minimum distance from a point to any point on the route
-function minDistanceToRoute(
-  lat: number,
-  lng: number,
-  routeCoords: [number, number][]
-): number {
-  let min = Infinity
-  for (const [rlat, rlng] of routeCoords) {
-    const d = distanceMiles(lat, lng, rlat, rlng)
-    if (d < min) min = d
-  }
-  return min
-}
+const coord = z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) })
+const stopsRequest = z.object({
+  from: coord,
+  to: coord,
+  preferences: z
+    .array(z.enum(['rest_area', 'gas_station', 'food', 'attraction', 'scenic', 'bucees', 'state_line', 'historical', 'national_park', 'viewpoint', 'love_lock']))
+    .max(20)
+    .optional(),
+  routeCoords: z.array(z.tuple([z.number().min(-90).max(90), z.number().min(-180).max(180)])).max(50_000).optional(),
+})
 
 export async function POST(req: NextRequest) {
   try {
-    const { from, to, preferences, routeCoords } = await req.json()
+    const parsed = stopsRequest.safeParse(await req.json().catch(() => null))
+    if (!parsed.success) return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
+    const { from, to, preferences, routeCoords } = parsed.data
 
     const tagMap: Partial<Record<StopType, string>> = {
       rest_area: 'amenity=rest_area',
@@ -107,7 +96,7 @@ out body 60;`
     })
 
     if (!res.ok) throw new Error(`Overpass error: ${res.status}`)
-    const data = await res.json()
+    const data = (await res.json()) as { elements?: OverpassElement[] }
     const elements = data.elements || []
 
     // Filter to stops within 15 miles of the route, and deduplicate
@@ -117,15 +106,15 @@ out body 60;`
 
     const seen = new Set<number>()
     const stops = elements
-      .filter((el: any) => {
+      .filter((el) => {
         if (seen.has(el.id)) return false
         seen.add(el.id)
         if (!el.tags?.name) return false // skip unnamed
-        const d = minDistanceToRoute(el.lat, el.lon, routePts)
+        const d = minDistanceToRoute({ lat: el.lat, lng: el.lon }, routePts)
         return d <= 15
       })
       .slice(0, 20)
-      .map((el: any) => {
+      .map((el) => {
         const stopType =
           prefs.find(p => {
             const tag = tagMap[p]

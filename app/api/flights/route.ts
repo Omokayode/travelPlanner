@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { USER_AGENT } from '@/lib/config'
+import { haversineMiles } from '@/lib/domain/geo'
 
 // OpenSky Network - completely free, no API key required
 // https://openskynetwork.github.io/opensky-api/rest.html
@@ -100,11 +101,7 @@ export async function GET(req: NextRequest) {
     // Estimate duration from distance (rough: ~500mph cruise)
     let durationMinutes = null
     if (origin && dest) {
-      const R = 3958.8
-      const dLat = (dest.lat - origin.lat) * Math.PI / 180
-      const dLon = (dest.lng - origin.lng) * Math.PI / 180
-      const a = Math.sin(dLat / 2) ** 2 + Math.cos(origin.lat * Math.PI / 180) * Math.cos(dest.lat * Math.PI / 180) * Math.sin(dLon / 2) ** 2
-      const distMiles = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+      const distMiles = haversineMiles(origin, dest)
       durationMinutes = Math.round(distMiles / 500 * 60)
     }
 

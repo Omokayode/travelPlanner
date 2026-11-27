@@ -2,9 +2,17 @@
 'use client'
 
 import Link from 'next/link'
-import { format, differenceInDays } from 'date-fns'
+import { format } from 'date-fns'
 import { Car, Plane, Train, Layers, MapPin, Calendar, Trash2 } from 'lucide-react'
 import { Trip, TripStats } from '@/lib/types'
+import { daysInclusive, toLocalDate } from '@/lib/domain/dates'
+
+/** Stable small number from the trip id, to pick a background. */
+function idHash(id: string): number {
+  let h = 0
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0
+  return h
+}
 import clsx from 'clsx'
 
 const TYPE_CONFIG = {
@@ -31,8 +39,8 @@ interface TripCardProps {
 export default function TripCard({ trip, stats, onDelete }: TripCardProps) {
   const config = TYPE_CONFIG[trip.type]
   const TypeIcon = config.icon
-  const bgGradient = TRIP_BACKGROUNDS[Math.abs(trip.id.charCodeAt(5) || 0) % TRIP_BACKGROUNDS.length]
-  const duration = differenceInDays(new Date(trip.endDate), new Date(trip.startDate)) + 1
+  const bgGradient = TRIP_BACKGROUNDS[idHash(trip.id) % TRIP_BACKGROUNDS.length]
+  const duration = daysInclusive(trip.startDate, trip.endDate)
   const progress = stats.totalDays > 0 ? (stats.daysCompleted / stats.totalDays) * 100 : 0
 
   const handleDelete = (e: React.MouseEvent) => {
@@ -79,7 +87,7 @@ export default function TripCard({ trip, stats, onDelete }: TripCardProps) {
           <div className="flex items-center gap-3 text-xs text-[#64748b] mb-4">
             <span className="flex items-center gap-1">
               <Calendar className="w-3 h-3" />
-              {format(new Date(trip.startDate), 'MMM d')} – {format(new Date(trip.endDate), 'MMM d, yyyy')}
+              {format(toLocalDate(trip.startDate), 'MMM d')} – {format(toLocalDate(trip.endDate), 'MMM d, yyyy')}
             </span>
             <span className="w-1 h-1 rounded-full bg-[#1e293b]" />
             <span>{duration} days</span>

@@ -1,13 +1,13 @@
 // components/LeafletMap.tsx
 'use client'
 
-import { useEffect } from 'react'
+import { Fragment, useEffect } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, ZoomControl } from 'react-leaflet'
 import L from 'leaflet'
 import { Segment, Stop, TRANSPORT_COLORS, STOP_TYPE_ICONS } from '@/lib/types'
 
 // Fix default marker icons
-delete (L.Icon.Default.prototype as any)._getIconUrl
+delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
@@ -71,12 +71,11 @@ export interface MapSegmentDisplay {
   color?: string
 }
 
-interface LeafletMapProps {
+export interface LeafletMapProps {
   segments?: MapSegmentDisplay[]
   stops?: Stop[]
   height?: string
   interactive?: boolean
-  onMapClick?: (lat: number, lng: number) => void
 }
 
 export default function LeafletMap({
@@ -84,7 +83,6 @@ export default function LeafletMap({
   stops = [],
   height = '400px',
   interactive = true,
-  onMapClick,
 }: LeafletMapProps) {
   const allCoords: [number, number][] = []
 
@@ -142,7 +140,7 @@ export default function LeafletMap({
 
       {/* Start/End markers */}
       {segments.map(({ segment }, i) => (
-        <div key={`marker_${segment.id}`}>
+        <Fragment key={`marker_${segment.id}`}>
           {i === 0 && (
             <Marker
               position={[segment.from.coords.lat, segment.from.coords.lng]}
@@ -175,7 +173,7 @@ export default function LeafletMap({
               </Popup>
             </Marker>
           )}
-        </div>
+        </Fragment>
       ))}
 
       {/* Stop markers */}

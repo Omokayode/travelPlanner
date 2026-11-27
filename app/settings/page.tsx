@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { Settings, Car, Fuel, Camera, Plus, Trash2, Check, Loader2 } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import { Vehicle, FuelType } from '@/lib/types'
+import { DEFAULT_FUEL_PRICES, DEFAULT_MPG } from '@/lib/domain/fuel'
+import { invalidateAppSettings } from '@/lib/useAppSettings'
 
 interface AppSettings {
   immichUrl?: string | null
@@ -25,7 +27,7 @@ const FUEL_LABELS: Record<FuelType, string> = {
   electric: 'Electric',
 }
 
-const DEFAULT_GAS = { regular: 3.45, premium: 3.95, diesel: 3.65 }
+const DEFAULT_GAS = DEFAULT_FUEL_PRICES
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<AppSettings>({})
@@ -37,7 +39,7 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false)
   const [addingVehicle, setAddingVehicle] = useState(false)
   const [newVehicle, setNewVehicle] = useState<Partial<Vehicle>>({
-    make: '', model: '', year: undefined, fuelEfficiency: 28,
+    make: '', model: '', year: undefined, fuelEfficiency: DEFAULT_MPG,
     fuelType: 'regular', tankSize: 15,
   })
 
@@ -62,6 +64,7 @@ export default function SettingsPage() {
       })
       if (!res.ok) { alert((await res.json()).error || 'Could not save'); return }
       setSettings(await res.json())
+      invalidateAppSettings()
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     } finally { setSaving(false) }
@@ -95,14 +98,14 @@ export default function SettingsPage() {
       make: newVehicle.make!,
       model: newVehicle.model || '',
       year: newVehicle.year,
-      fuelEfficiency: newVehicle.fuelEfficiency || 28,
+      fuelEfficiency: newVehicle.fuelEfficiency || DEFAULT_MPG,
       fuelType: newVehicle.fuelType as FuelType || 'regular',
       tankSize: newVehicle.tankSize || 15,
     }
     const updated = [...(settings.savedVehicles || []), v]
     await save({ savedVehicles: updated })
     setAddingVehicle(false)
-    setNewVehicle({ make: '', model: '', year: undefined, fuelEfficiency: 28, fuelType: 'regular', tankSize: 15 })
+    setNewVehicle({ make: '', model: '', year: undefined, fuelEfficiency: DEFAULT_MPG, fuelType: 'regular', tankSize: 15 })
   }
 
   const removeVehicle = async (i: number) => {
@@ -255,7 +258,7 @@ export default function SettingsPage() {
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="text-white/40 text-xs mb-1 block">MPG</label>
-                  <input className="tp-input w-full" type="number" value={newVehicle.fuelEfficiency || 28}
+                  <input className="tp-input w-full" type="number" value={newVehicle.fuelEfficiency || DEFAULT_MPG}
                     onChange={e => setNewVehicle(v => ({ ...v, fuelEfficiency: parseFloat(e.target.value) }))} />
                 </div>
                 <div>

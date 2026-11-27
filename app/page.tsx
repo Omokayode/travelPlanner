@@ -7,21 +7,7 @@ import { Plus, Map, TrendingUp, Globe, Sparkles, Loader2 } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import TripCard from '@/components/TripCard'
 import { Trip } from '@/lib/types'
-import { getTripStats } from '@/lib/stats'
-
-function calcStats(trips: Trip[]) {
-  return trips.reduce((acc, trip) => {
-    const miles = trip.days?.reduce((s, d) =>
-      s + (d.segments?.reduce((ss, seg) => ss + (seg.distance || 0), 0) || 0), 0) || 0
-    const cost = trip.days?.reduce((s, d) =>
-      s + (d.segments?.reduce((ss, seg) => ss + (seg.cost || 0), 0) || 0), 0) || 0
-    return {
-      miles: acc.miles + miles,
-      cities: acc.cities + (trip.visitedCities?.length || 0),
-      cost: acc.cost + cost,
-    }
-  }, { miles: 0, cities: 0, cost: 0 })
-}
+import { overallStats, tripStats } from '@/lib/domain/trip'
 
 export default function HomePage() {
   const [trips, setTrips] = useState<Trip[]>([])
@@ -39,11 +25,12 @@ export default function HomePage() {
   useEffect(() => { load() }, [])
 
   const handleDelete = async (id: string) => {
-    await fetch(`/api/trips/${id}`, { method: 'DELETE' })
+    const res = await fetch(`/api/trips/${id}`, { method: 'DELETE' })
+    if (!res.ok) { alert('Could not delete the trip'); return }
     setTrips(prev => prev.filter(t => t.id !== id))
   }
 
-  const totalStats = calcStats(trips)
+  const totalStats = overallStats(trips)
 
   if (loading) {
     return (
@@ -120,7 +107,7 @@ export default function HomePage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {trips.map(trip => (
-              <TripCard key={trip.id} trip={trip} stats={getTripStats(trip)} onDelete={handleDelete} />
+              <TripCard key={trip.id} trip={trip} stats={tripStats(trip)} onDelete={handleDelete} />
             ))}
           </div>
         </div>

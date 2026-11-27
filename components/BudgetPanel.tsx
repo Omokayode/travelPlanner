@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { Plus, Trash2, Edit2, X, Check, Camera, Loader2, Receipt } from 'lucide-react'
-import { Expense, ExpenseCategory, EXPENSE_CATEGORY_ICONS, EXPENSE_CATEGORY_COLORS, Trip, Lodging } from '@/lib/types'
+import { Expense, ExpenseCategory, EXPENSE_CATEGORY_ICONS, EXPENSE_CATEGORY_COLORS, Trip } from '@/lib/types'
+import { tripStats } from '@/lib/domain/trip'
+import { todayLocal } from '@/lib/domain/dates'
 import clsx from 'clsx'
 
 interface Props {
@@ -37,7 +39,7 @@ interface ExpenseForm {
 
 const emptyForm = (): ExpenseForm => ({
   name: '', amount: '', category: 'misc',
-  date: new Date().toISOString().split('T')[0],
+  date: todayLocal(), // not toISOString(): that is UTC, i.e. tomorrow in the evening in the US
   notes: '', receipt: null, paymentMethod: '',
 })
 
@@ -46,17 +48,11 @@ function deriveProposed(trip?: Trip): ProposedItem[] {
   if (!trip) return []
   const items: ProposedItem[] = []
 
-  let totalFuel = 0, totalTolls = 0
-  for (const day of trip.days || []) {
-    for (const seg of day.segments || []) {
-      totalFuel += seg.fuelCost || 0
-      totalTolls += seg.tollCost || 0
-    }
-  }
-  if (totalFuel > 0) items.push({ id: 'auto-fuel', label: 'Fuel (from route)', category: 'fuel', amount: Math.round(totalFuel * 100) / 100, source: 'fuel' })
-  if (totalTolls > 0) items.push({ id: 'auto-tolls', label: 'Tolls (estimated)', category: 'tolls', amount: Math.round(totalTolls * 100) / 100, source: 'tolls' })
+  const { totalFuelCost, totalTollCost } = tripStats(trip)
+  if (totalFuelCost > 0) items.push({ id: 'auto-fuel', label: 'Fuel (from route)', category: 'fuel', amount: totalFuelCost, source: 'fuel' })
+  if (totalTollCost > 0) items.push({ id: 'auto-tolls', label: 'Tolls (estimated)', category: 'tolls', amount: totalTollCost, source: 'tolls' })
 
-  for (const lodging of (trip.lodgings || []) as Lodging[]) {
+  for (const lodging of trip.lodgings || []) {
     if (lodging.cost) {
       items.push({ id: `lodging-${lodging.id}`, label: lodging.name, category: 'accommodation', amount: lodging.cost, source: 'lodging' })
     }

@@ -1,10 +1,13 @@
 // app/trips/new/page.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { v4 as uuidv4 } from 'uuid'
-import { addDays, format, differenceInDays } from 'date-fns'
+import { addDays, daysInclusive, isIsoDate, todayLocal } from '@/lib/domain/dates'
+import { buildDays } from '@/lib/domain/trip'
+import { DEFAULT_MPG } from '@/lib/domain/fuel'
+import { useAppSettings } from '@/lib/useAppSettings'
 import {
   Car, Plane, Train, Layers, ArrowRight, ArrowLeft,
   Check, Loader2, Calendar, DollarSign
@@ -13,7 +16,7 @@ import Navbar from '@/components/Navbar'
 import { Trip, TripType, Vehicle, FuelType, Day } from '@/lib/types'
 import clsx from 'clsx'
 
-const TRIP_TYPES: { type: TripType; icon: React.ComponentType<any>; label: string; desc: string; color: string }[] = [
+const TRIP_TYPES: { type: TripType; icon: React.ComponentType<{ className?: string }>; label: string; desc: string; color: string }[] = [
   { type: 'road_trip', icon: Car, label: 'Road Trip', desc: 'Drive with fuel calcs, toll estimates & stop suggestions', color: 'amber' },
   { type: 'flight', icon: Plane, label: 'Flight', desc: 'Air travel with booking management', color: 'blue' },
   { type: 'train', icon: Train, label: 'Train', desc: 'Rail journey with schedule tracking', color: 'green' },
@@ -34,8 +37,8 @@ export default function NewTripPage() {
 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'))
-  const [endDate, setEndDate] = useState(format(addDays(new Date(), 7), 'yyyy-MM-dd'))
+  const [startDate, setStartDate] = useState(() => todayLocal())
+  const [endDate, setEndDate] = useState(() => addDays(todayLocal(), 7))
   const [tripType, setTripType] = useState<TripType>('road_trip')
   const [budget, setBudget] = useState('')
 
@@ -46,26 +49,20 @@ export default function NewTripPage() {
   const [fuelType, setFuelType] = useState<FuelType>('regular')
   const [tankSize, setTankSize] = useState('15')
 
-  const numDays = Math.max(1, differenceInDays(new Date(endDate), new Date(startDate)) + 1)
+  const datesValid = isIsoDate(startDate) && isIsoDate(endDate) && endDate >= startDate
+  const numDays = datesValid ? daysInclusive(startDate, endDate) : 0
   const maxStep = tripType === 'road_trip' ? 3 : 2
 
   const createTrip = async () => {
+    if (!datesValid) { alert('The end date must be on or after the start date.'); return }
     setSaving(true)
-    const days: Day[] = Array.from({ length: numDays }, (_, i) => ({
-      id: uuidv4(),
-      date: format(addDays(new Date(startDate), i), 'yyyy-MM-dd'),
-      dayNumber: i + 1,
-      segments: [],
-      activities: [],
-      photos: [],
-      visited: false,
-    }))
+    const days: Day[] = buildDays(startDate, endDate, uuidv4)
 
     const vehicle: Vehicle | undefined = tripType === 'road_trip' ? {
       make: vehicleMake || 'My Vehicle',
       model: vehicleModel,
       year: vehicleYear ? parseInt(vehicleYear) : undefined,
-      fuelEfficiency: parseFloat(mpg) || 28,
+      fuelEfficiency: parseFloat(mpg) || DEFAULT_MPG,
       fuelType,
       tankSize: parseFloat(tankSize) || 15,
     } : undefined
@@ -93,9 +90,14 @@ export default function NewTripPage() {
         body: JSON.stringify(trip),
       })
       const created = await res.json()
+      if (!res.ok) {
+        alert(created?.error || 'Could not create the trip')
+        setSaving(false)
+        return
+      }
       router.push(`/trips/${created.id}`)
-    } catch (err) {
-      console.error('Failed to create trip:', err)
+    } catch {
+      alert('Could not reach the server')
       setSaving(false)
     }
   }
@@ -173,7 +175,7 @@ export default function NewTripPage() {
             <div className="space-y-3">
               <label className="text-white/50 text-xs">Trip type</label>
               <div className="grid grid-cols-2 gap-3">
-                {TRIP_TYPES.map(({ type, icon: Icon, label, desc, color }) => (
+                {TRIP_TYPES.map(({ type, icon: Icon, label, desc }) => (
                   <button
                     key={type}
                     onClick={() => setTripType(type)}
@@ -209,8 +211,8 @@ export default function NewTripPage() {
             <SavedVehiclePicker onSelect={(v) => {
               setVehicleMake(v.make); setVehicleModel(v.model || '')
               setVehicleYear(v.year ? String(v.year) : '')
-              setMpg(String(v.fuelEfficiency || 28))
-              setFuelType(v.fuelType as any)
+              setMpg(String(v.fuelEfficiency || DEFAULT_MPG))
+              setFuelType(v.fuelType)
               setTankSize(String(v.tankSize || 15))
             }} />
 
@@ -316,15 +318,8 @@ export default function NewTripPage() {
 }
 
 // ── Saved vehicle picker ──────────────────────────────────────────────────────
-function SavedVehiclePicker({ onSelect }: { onSelect: (v: any) => void }) {
-  const [vehicles, setVehicles] = useState<any[]>([])
-
-  useEffect(() => {
-    fetch('/api/settings')
-      .then(r => r.json())
-      .then(s => setVehicles(s.savedVehicles || []))
-      .catch(() => {})
-  }, [])
+function SavedVehiclePicker({ onSelect }: { onSelect: (v: Vehicle) => void }) {
+  const vehicles = useAppSettings()?.savedVehicles || []
 
   if (vehicles.length === 0) return null
 

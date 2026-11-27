@@ -4,11 +4,10 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { format, parseISO, addDays, differenceInDays } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import {
   ArrowLeft, Car, Plane, Train, Layers, CalendarDays, MapPin, ExternalLink, ChevronRight, ChevronDown, CheckCircle2, Circle, Trash2, Navigation, Globe, Loader2, Hotel, Edit2, X, Check, Plus
 } from 'lucide-react'
-import { v4 as uuidv4 } from 'uuid'
 import Navbar from '@/components/Navbar'
 import MapView from '@/components/MapView'
 import PackingListPanel from '@/components/PackingListPanel'
@@ -18,7 +17,8 @@ import ImmichPanel from '@/components/ImmichPanel'
 import TripTimeline from '@/components/TripTimeline'
 import { Trip, Day, Lodging, TRANSPORT_ICONS } from '@/lib/types'
 import { getGoogleMapsUrl, getWazeUrl } from '@/lib/api'
-import { getTripStats } from '@/lib/stats'
+import { dayTotals, lodgingForDate, tripStats } from '@/lib/domain/trip'
+import { daysInclusive, isIsoDate } from '@/lib/domain/dates'
 import clsx from 'clsx'
 
 const TYPE_ICONS = { road_trip: Car, flight: Plane, train: Train, mixed: Layers }
@@ -81,8 +81,9 @@ export default function TripPage() {
 
   const checkDateChange = () => {
     if (!trip) return
+    if (!newStart || !newEnd || newEnd < newStart) { alert('The end date must be on or after the start date.'); return }
     const oldDays = trip.days.length
-    const newDays = Math.max(1, differenceInDays(new Date(newEnd), new Date(newStart)) + 1)
+    const newDays = daysInclusive(newStart, newEnd)
     const diff = newDays - oldDays
     if (diff === 0) { applyDateChange(); return }
     setDateConfirm({ add: Math.max(0, diff), remove: Math.max(0, -diff) })
@@ -92,43 +93,12 @@ export default function TripPage() {
     if (!trip) return
     setSavingDates(true)
     try {
-      const newDayCount = Math.max(1, differenceInDays(new Date(newEnd), new Date(newStart)) + 1)
-      let days = [...trip.days]
-
-      if (newDayCount > days.length) {
-        for (let i = days.length; i < newDayCount; i++) {
-          const newDay: Day = {
-            id: uuidv4(), date: format(addDays(new Date(newStart), i), 'yyyy-MM-dd'),
-            dayNumber: i + 1, segments: [], activities: [], photos: [], visited: false,
-          }
-          days.push(newDay)
-          await fetch(`/api/trips/${tripId}/days/${newDay.id}`, {
-            method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(newDay),
-          })
-        }
-      } else if (newDayCount < days.length) {
-        const toRemove = days.slice(newDayCount)
-        days = days.slice(0, newDayCount)
-        for (const d of toRemove) {
-          await fetch(`/api/trips/${tripId}/days/${d.id}`, { method: 'DELETE' })
-        }
-      }
-
-      days = days.map((d, i) => ({
-        ...d, dayNumber: i + 1,
-        date: format(addDays(new Date(newStart), i), 'yyyy-MM-dd'),
-      }))
-      for (const d of days) {
-        await fetch(`/api/trips/${tripId}/days/${d.id}`, {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(d),
-        })
-      }
-      await fetch(`/api/trips/${tripId}`, {
+      // one server call: re-dates, adds or removes days in a single transaction
+      const res = await fetch(`/api/trips/${tripId}/dates`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...trip, startDate: newStart, endDate: newEnd, days }),
+        body: JSON.stringify({ startDate: newStart, endDate: newEnd }),
       })
+      if (!res.ok) { alert((await res.json().catch(() => null))?.error || 'Could not change the dates'); return }
       setEditingDates(false)
       setDateConfirm(null)
       load()
@@ -147,7 +117,7 @@ export default function TripPage() {
   if (!trip) return null
 
   const TypeIcon = TYPE_ICONS[trip.type]
-  const stats = getTripStats(trip)
+  const stats = tripStats(trip)
   const allMapSegments = trip.days?.flatMap(d => d.segments?.map(s => ({ segment: s })) || []) || []
   const allStops = trip.days?.flatMap(d => d.segments?.flatMap(s => s.stops || []) || []) || []
   const firstSeg = trip.days?.[0]?.segments?.[0]
@@ -212,7 +182,7 @@ export default function TripPage() {
                     </div>
                   </div>
                   <div className="text-white/40 text-sm">
-                    {Math.max(1, differenceInDays(new Date(newEnd), new Date(newStart)) + 1)} days (currently {trip.days.length})
+                    {isIsoDate(newStart) && isIsoDate(newEnd) && newEnd >= newStart ? daysInclusive(newStart, newEnd) : '–'} days (currently {trip.days.length})
                   </div>
                   <div className="flex gap-2 justify-end">
                     <button onClick={() => setEditingDates(false)} className="px-4 py-2 text-sm text-white/50">Cancel</button>
@@ -297,7 +267,7 @@ export default function TripPage() {
               <div className="space-y-2 max-h-[700px] overflow-y-auto pr-1">
                 {trip.days?.map(day => (
                   <DayRow key={day.id} day={day} tripId={tripId} isRoadTrip={trip.type === 'road_trip'}
-                    lodging={(trip.lodgings as Lodging[] || []).find(l => l.checkIn <= day.date && day.date <= l.checkOut)}
+                    lodging={lodgingForDate(trip.lodgings, day.date)}
                     onToggleVisited={() => handleMarkVisited(day)} />
                 ))}
               </div>
@@ -364,9 +334,7 @@ function DayRow({ day, tripId, isRoadTrip, lodging, onToggleVisited }: {
   day: Day; tripId: string; isRoadTrip: boolean; lodging?: Lodging; onToggleVisited: () => void
 }) {
   const [expanded, setExpanded] = useState(false)
-  const totalDist = day.segments?.reduce((s, seg) => s + (seg.distance || 0), 0) || 0
-  const totalCost = (day.segments?.reduce((s, seg) => s + (seg.cost || 0), 0) || 0) +
-    (day.activities?.reduce((s, a) => s + (a.cost || 0), 0) || 0)
+  const { miles: totalDist, cost: totalCost } = dayTotals(day)
   const hasLegs = (day.segments?.length ?? 0) > 0
 
   return (
@@ -420,14 +388,14 @@ function DayRow({ day, tripId, isRoadTrip, lodging, onToggleVisited }: {
       {/* Expanded legs + stops */}
       {expanded && hasLegs && (
         <div className="border-t border-white/6 px-4 py-3 space-y-2">
-          {day.segments!.map((seg, si) => (
+          {day.segments!.map(seg => (
             <div key={seg.id} className="text-xs">
               <div className="flex items-center gap-1.5 text-white/60 font-medium">
                 <span>{TRANSPORT_ICONS[seg.mode]}</span>
                 <span>{seg.from?.city || seg.from?.name}</span>
                 <ChevronRight className="w-3 h-3 text-emerald-500/50" />
                 <span>{seg.to?.city || seg.to?.name}</span>
-                {seg.distance && <span className="text-white/30 ml-1">· {Math.round(seg.distance)}mi</span>}
+                {!!seg.distance && <span className="text-white/30 ml-1">· {Math.round(seg.distance)}mi</span>}
               </div>
               {(seg.stops?.length ?? 0) > 0 && (
                 <div className="ml-5 mt-1 space-y-0.5">

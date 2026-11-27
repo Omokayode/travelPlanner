@@ -16,8 +16,8 @@ import ActivityPanel from '@/components/ActivityPanel'
 import WeatherCard from '@/components/WeatherCard'
 import BudgetPanel from '@/components/BudgetPanel'
 import ImmichPanel from '@/components/ImmichPanel'
-import { getLodgingForDate } from '@/components/LodgingPanel'
-import { Day, Trip, Segment, Activity, Lodging, TRANSPORT_ICONS, TRANSPORT_COLORS, Stop } from '@/lib/types'
+import { dayStops, dayTotals, lodgingForDate } from '@/lib/domain/trip'
+import { Day, Trip, Segment, Activity, TRANSPORT_ICONS, TRANSPORT_COLORS, Stop, WeatherDay } from '@/lib/types'
 import { getGoogleMapsUrl, getWazeUrl } from '@/lib/api'
 import clsx from 'clsx'
 
@@ -134,14 +134,10 @@ export default function DayPage() {
   if (!trip || !day) return null
 
   const isRoadTrip = trip.type === 'road_trip'
-  const totalMiles = day.segments?.reduce((s, seg) => s + (seg.distance || 0), 0) || 0
-  const totalDriveMins = day.segments?.reduce((s, seg) => s + (seg.duration || 0), 0) || 0
-  const totalFuel = day.segments?.reduce((s, seg) => s + (seg.fuelCost || 0), 0) || 0
-  const totalCost = (day.segments?.reduce((s, seg) => s + (seg.cost || 0), 0) || 0) +
-    (day.activities?.reduce((s, a) => s + (a.cost || 0), 0) || 0)
+  const { miles: totalMiles, driveMinutes: totalDriveMins, fuelCost: totalFuel, cost: totalCost } = dayTotals(day)
 
   const mapSegments = day.segments?.map(seg => ({ segment: seg })) || []
-  const allStops = day.segments?.flatMap(s => s.stops) || []
+  const allStops = dayStops(day)
   const firstSeg = day.segments?.[0]
   const lastSeg = day.segments?.[day.segments.length - 1]
 
@@ -150,7 +146,7 @@ export default function DayPage() {
   const weatherLng = firstSeg?.from?.coords?.lng
   const weatherLocation = firstSeg?.from?.city || firstSeg?.from?.name
 
-  const dayLodging = getLodgingForDate((trip.lodgings as Lodging[]) || [], day.date)
+  const dayLodging = lodgingForDate(trip.lodgings, day.date)
 
   // Find previous day's end city for "same city" inherit
   const prevDay = trip.days?.find(d => d.dayNumber === day.dayNumber - 1)
@@ -434,9 +430,9 @@ function SegmentCard({ segment: seg, isRoadTrip, expanded, onToggle, onEdit, onD
             <span className="truncate">{seg.to.name}</span>
           </div>
           <div className="flex items-center gap-3 mt-0.5 text-xs text-white/40">
-            {seg.distance && <span>{Math.round(seg.distance)} mi</span>}
-            {seg.duration && <span>{Math.floor(seg.duration / 60)}h {Math.round(seg.duration % 60)}m</span>}
-            {seg.cost && <span className="text-green-400">${seg.cost.toFixed(2)}</span>}
+            {!!seg.distance && <span>{Math.round(seg.distance)} mi</span>}
+            {!!seg.duration && <span>{Math.floor(seg.duration / 60)}h {Math.round(seg.duration % 60)}m</span>}
+            {!!seg.cost && <span className="text-green-400">${seg.cost.toFixed(2)}</span>}
             {seg.carrier && <span>{seg.carrier} {seg.flightNumber}</span>}
             {seg.stops?.length > 0 && <span>{seg.stops.length} stop{seg.stops.length !== 1 ? 's' : ''}</span>}
           </div>
@@ -460,16 +456,16 @@ function SegmentCard({ segment: seg, isRoadTrip, expanded, onToggle, onEdit, onD
         <div className="mt-3 pt-3 border-t border-white/6 space-y-3">
           {isRoadTrip && (seg.fuelCost || seg.tollCost) && (
             <div className="grid grid-cols-3 gap-2">
-              {seg.fuelGallons && <Detail label="Gallons" value={`${seg.fuelGallons.toFixed(2)} gal`} />}
-              {seg.fuelCost && <Detail label="Fuel Cost" value={`$${seg.fuelCost.toFixed(2)}`} />}
-              {seg.tollCost && <Detail label="Tolls" value={`$${seg.tollCost.toFixed(2)}`} />}
+              {!!seg.fuelGallons && <Detail label="Gallons" value={`${seg.fuelGallons.toFixed(2)} gal`} />}
+              {!!seg.fuelCost && <Detail label="Fuel Cost" value={`$${seg.fuelCost.toFixed(2)}`} />}
+              {!!seg.tollCost && <Detail label="Tolls" value={`$${seg.tollCost.toFixed(2)}`} />}
             </div>
           )}
           {seg.departureTime && <Detail label="Departs" value={new Date(seg.departureTime).toLocaleString()} />}
           {seg.arrivalTime && <Detail label="Arrives" value={new Date(seg.arrivalTime).toLocaleString()} />}
           {seg.bookingRef && <Detail label="Ref #" value={seg.bookingRef} />}
           {seg.notes && <div className="text-xs text-white/40 italic">{seg.notes}</div>}
-          {isRoadTrip && <StopPanel segment={seg} onUpdate={onUpdateStops} onUpdateSegment={onUpdateSegment} />}
+          {isRoadTrip && <StopPanel segment={seg} vehicle={vehicle} onUpdate={onUpdateStops} onUpdateSegment={onUpdateSegment} />}
         </div>
       )}
     </div>
@@ -523,7 +519,7 @@ function DayNotes({ notes, onSave }: { notes: string; onSave: (n: string) => voi
 function WeatherStrip({ dayDate, lat, lng, locationName }: {
   dayDate: string; lat: number; lng: number; locationName?: string
 }) {
-  const [weather, setWeather] = useState<any>(null)
+  const [weather, setWeather] = useState<WeatherDay | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {

@@ -6,11 +6,14 @@ import { v4 as uuidv4 } from 'uuid'
 import {
   Car, Plane, Train, Bus, Ship, Footprints, Loader2, Fuel, X, Check, Clock, Route, AlertCircle
 } from 'lucide-react'
-import { Segment, TransportMode, GeoLocation, Vehicle, FUEL_PRICES } from '@/lib/types'
-import { getRoute, calculateFuelCost, estimateTolls } from '@/lib/api'
+import { FlightLookupResult, Segment, TransportMode, GeoLocation, Vehicle } from '@/lib/types'
+import { todayLocal } from '@/lib/domain/dates'
+import { getRoute } from '@/lib/api'
+import { driveCosts, fuelPrice } from '@/lib/domain/fuel'
+import { useAppSettings } from '@/lib/useAppSettings'
 import LocationSearch from './LocationSearch'
 
-const MODES: { mode: TransportMode; icon: React.ComponentType<any>; label: string }[] = [
+const MODES: { mode: TransportMode; icon: React.ComponentType<{ className?: string }>; label: string }[] = [
   { mode: 'drive', icon: Car, label: 'Drive' },
   { mode: 'flight', icon: Plane, label: 'Flight' },
   { mode: 'train', icon: Train, label: 'Train' },
@@ -42,9 +45,13 @@ export default function SegmentEditor({ segment, vehicle, defaultFrom, onSave, o
   const [fuelCost, setFuelCost] = useState<number>(segment?.fuelCost || 0)
   const [fuelGallons, setFuelGallons] = useState<number>(segment?.fuelGallons || 0)
   const [tollCost, setTollCost] = useState<number>(segment?.tollCost || 0)
-  const [fuelPriceOverride, setFuelPriceOverride] = useState<number>(
-    vehicle ? FUEL_PRICES[vehicle.fuelType] : FUEL_PRICES.regular
-  )
+  // Price per gallon: the Settings price for this vehicle's fuel (or the default) until edited for this leg.
+  const settings = useAppSettings()
+  const [fuelPriceOverride, setFuelPriceOverride] = useState<number>(fuelPrice(vehicle?.fuelType))
+  const [priceTouched, setPriceTouched] = useState(false)
+  useEffect(() => {
+    if (settings && !priceTouched) setFuelPriceOverride(fuelPrice(vehicle?.fuelType, settings))
+  }, [settings, vehicle?.fuelType, priceTouched])
 
   // Booking fields
   const [carrier, setCarrier] = useState(segment?.carrier || '')
@@ -64,13 +71,12 @@ export default function SegmentEditor({ segment, vehicle, defaultFrom, onSave, o
 
   // Auto-recalc fuel when distance or price changes
   useEffect(() => {
-    if (mode === 'drive' && distance > 0 && vehicle) {
-      const { gallons, cost: fc } = calculateFuelCost(distance, vehicle.fuelEfficiency, fuelPriceOverride)
-      setFuelGallons(gallons)
-      setFuelCost(fc)
-      const tolls = estimateTolls(distance)
-      setTollCost(tolls)
-      setCost(fc + tolls)
+    if (mode === 'drive' && distance > 0) {
+      const c = driveCosts(distance, vehicle, fuelPriceOverride)
+      setFuelGallons(c.fuelGallons)
+      setFuelCost(c.fuelCost)
+      setTollCost(c.tollCost)
+      setCost(c.cost)
     }
   }, [distance, vehicle, fuelPriceOverride, mode])
 
@@ -205,7 +211,7 @@ export default function SegmentEditor({ segment, vehicle, defaultFrom, onSave, o
                 <div>
                   <label className="tp-label">Price/Gallon ($)</label>
                   <input type="number" step="0.01" value={fuelPriceOverride}
-                    onChange={e => setFuelPriceOverride(parseFloat(e.target.value) || 0)}
+                    onChange={e => { setPriceTouched(true); setFuelPriceOverride(parseFloat(e.target.value) || 0) }}
                     className="tp-input" />
                 </div>
                 <div>
@@ -378,8 +384,8 @@ function greatCircleArc(from: { lat: number; lng: number }, to: { lat: number; l
 }
 
 // ── Flight lookup sub-component ──────────────────────────────────────────────
-function FlightLookup({ flightNumber, onFound }: { flightNumber: string; onFound: (data: any) => void }) {
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0])
+function FlightLookup({ flightNumber, onFound }: { flightNumber: string; onFound: (data: FlightLookupResult) => void }) {
+  const [date, setDate] = useState(() => todayLocal())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [found, setFound] = useState(false)

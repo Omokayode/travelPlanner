@@ -1,8 +1,10 @@
-// components/MapView.tsx
+// components/MapView.tsx — loads the Leaflet map on the client only (Leaflet needs `window`).
 'use client'
 
 import dynamic from 'next/dynamic'
-import { Segment, Stop } from '@/lib/types'
+import type { LeafletMapProps } from './LeafletMap'
+
+export type { MapSegmentDisplay } from './LeafletMap'
 
 const LeafletMap = dynamic(() => import('./LeafletMap'), {
   ssr: false,
@@ -17,19 +19,6 @@ const LeafletMap = dynamic(() => import('./LeafletMap'), {
   ),
 })
 
-export interface MapSegmentDisplay {
-  segment: Segment
-  color?: string
-}
-
-interface MapViewProps {
-  segments?: MapSegmentDisplay[]
-  stops?: Stop[]
-  height?: string
-  interactive?: boolean
-  onMapClick?: (lat: number, lng: number) => void
-}
-
-export default function MapView(props: MapViewProps) {
+export default function MapView(props: LeafletMapProps) {
   return <LeafletMap {...props} />
 }

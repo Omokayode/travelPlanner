@@ -1,12 +1,13 @@
 // components/StopPanel.tsx
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Plus, Trash2, Loader2, Map, Check, Star, ChevronDown, ChevronUp, RefreshCw, X } from 'lucide-react'
 import { v4 as uuidv4 } from 'uuid'
-import { Stop, StopType, Segment, GeoLocation, STOP_TYPE_ICONS } from '@/lib/types'
-import { getRoute, calculateFuelCost, estimateTolls } from '@/lib/api'
-import { FUEL_PRICES } from '@/lib/types'
+import { Stop, StopType, Segment, GeoLocation, Vehicle, STOP_TYPE_ICONS } from '@/lib/types'
+import { getRoute } from '@/lib/api'
+import { driveCosts, fuelPrice } from '@/lib/domain/fuel'
+import { useAppSettings } from '@/lib/useAppSettings'
 import LocationSearch from './LocationSearch'
 import clsx from 'clsx'
 
@@ -23,13 +24,16 @@ const STOP_TYPES: { type: StopType; label: string }[] = [
 
 interface StopPanelProps {
   segment: Segment
-  vehicle?: { fuelEfficiency: number; fuelType: string }
+  vehicle?: Pick<Vehicle, 'fuelEfficiency' | 'fuelType'>
   onUpdate: (stops: Stop[]) => void
   onUpdateSegment?: (patch: Partial<Segment>) => void
 }
 
 export default function StopPanel({ segment, vehicle, onUpdate, onUpdateSegment }: StopPanelProps) {
+  const settings = useAppSettings()
   const [stops, setStops] = useState<Stop[]>(segment.stops || [])
+  // keep in step when the parent saves the segment (otherwise this list goes stale)
+  useEffect(() => { setStops(segment.stops || []) }, [segment.stops])
   const [suggestions, setSuggestions] = useState<Stop[]>([])
   const [loading, setLoading] = useState(false)
   const [recalcing, setRecalcing] = useState(false)
@@ -47,17 +51,13 @@ export default function StopPanel({ segment, vehicle, onUpdate, onUpdateSegment 
       const waypoints = newStops.map(s => s.location.coords)
       const result = await getRoute(segment.from.coords, segment.to.coords, waypoints)
       if (!result) return
-      const fuelPrice = vehicle ? FUEL_PRICES[vehicle.fuelType as keyof typeof FUEL_PRICES] ?? FUEL_PRICES.regular : FUEL_PRICES.regular
-      const mpg = vehicle?.fuelEfficiency || 28
-      const { gallons, cost: fuelCost } = calculateFuelCost(result.distanceMiles, mpg, fuelPrice)
-      const tollCost = estimateTolls(result.distanceMiles)
+      const c = driveCosts(result.distanceMiles, vehicle, fuelPrice(vehicle?.fuelType, settings))
       onUpdateSegment({
         stops: newStops,
         distance: Math.round(result.distanceMiles * 10) / 10,
         duration: Math.round(result.durationMinutes),
         routeCoords: result.coords,
-        fuelCost, fuelGallons: gallons, tollCost,
-        cost: fuelCost + tollCost,
+        ...c,
       })
     } catch (err) {
       console.error('Route recalc error:', err)

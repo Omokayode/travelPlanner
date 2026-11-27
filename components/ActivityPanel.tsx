@@ -135,7 +135,7 @@ export default function ActivityPanel({ activities, cityName, onAdd, onUpdate, o
                   {activity.isHighlight && <Star className="w-3 h-3 text-emerald-500 inline ml-1" />}
                   <div className="flex items-center gap-2 mt-0.5">
                     {activity.time && <span className="text-xs text-[#475569]">{activity.time}</span>}
-                    {activity.duration && <span className="text-xs text-[#475569]">{activity.duration}min</span>}
+                    {!!activity.duration && <span className="text-xs text-[#475569]">{activity.duration}min</span>}
                     {activity.cost !== undefined && <span className="text-xs text-green-400">${activity.cost}</span>}
                   </div>
                 </div>

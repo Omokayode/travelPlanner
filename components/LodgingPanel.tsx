@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { Plus, Trash2, Edit2, X, Check, Hotel, MapPin, Mail, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
-import { Lodging, Trip } from '@/lib/types'
+import { GeoLocation, Lodging, Trip } from '@/lib/types'
 import LocationSearch from './LocationSearch'
 
 interface Props {
@@ -11,9 +11,12 @@ interface Props {
   onUpdate: (lodgings: Lodging[]) => void
 }
 
-const emptyForm = (): Omit<Lodging, 'id'> => ({
+/** The form allows "no place picked yet"; saveLodging checks it before building a Lodging. */
+type LodgingForm = Omit<Lodging, 'id' | 'location'> & { location: GeoLocation | null }
+
+const emptyForm = (): LodgingForm => ({
   name: '',
-  location: null as any,
+  location: null,
   checkIn: '',
   checkOut: '',
   confirmationText: '',
@@ -23,7 +26,7 @@ const emptyForm = (): Omit<Lodging, 'id'> => ({
 })
 
 export default function LodgingPanel({ trip, onUpdate }: Props) {
-  const lodgings: Lodging[] = (trip.lodgings as Lodging[]) || []
+  const lodgings: Lodging[] = trip.lodgings || []
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState(emptyForm())
@@ -31,16 +34,20 @@ export default function LodgingPanel({ trip, onUpdate }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const saveLodging = async () => {
-    if (!form.name.trim() || !form.location || !form.checkIn || !form.checkOut) return
+    const location = form.location
+    if (!form.name.trim() || !location || !form.checkIn || !form.checkOut) return
+    if (form.checkOut < form.checkIn) { alert('Check-out must be on or after check-in.'); return }
     setSaving(true)
+    const entry = { ...form, location }
     const updated = editingId
-      ? lodgings.map(l => l.id === editingId ? { ...form, id: editingId } : l)
-      : [...lodgings, { ...form, id: uuidv4() }]
-    await save(updated)
+      ? lodgings.map(l => l.id === editingId ? { ...entry, id: editingId } : l)
+      : [...lodgings, { ...entry, id: uuidv4() }]
+    const ok = await save(updated)
+    setSaving(false)
+    if (!ok) return
     setShowForm(false)
     setEditingId(null)
     setForm(emptyForm())
-    setSaving(false)
   }
 
   const deleteLodging = async (id: string) => {
@@ -55,13 +62,18 @@ export default function LodgingPanel({ trip, onUpdate }: Props) {
     setShowForm(true)
   }
 
-  const save = async (updated: Lodging[]) => {
-    await fetch(`/api/trips/${trip.id}`, {
+  const save = async (updated: Lodging[]): Promise<boolean> => {
+    const res = await fetch(`/api/trips/${trip.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...trip, lodgings: updated }),
-    })
+      body: JSON.stringify({ lodgings: updated }), // only what changed
+    }).catch(() => null)
+    if (!res?.ok) {
+      alert((await res?.json().catch(() => null))?.error || 'Could not save lodging')
+      return false
+    }
     onUpdate(updated)
+    return true
   }
 
   const nights = (l: Lodging) => {
@@ -174,7 +186,7 @@ export default function LodgingPanel({ trip, onUpdate }: Props) {
                   <span className="opacity-40">·</span>
                   {n} night{n !== 1 ? 's' : ''}
                 </div>
-                {l.cost && <div className="text-emerald-400 text-xs mt-0.5">${l.cost.toFixed(2)}</div>}
+                {!!l.cost && <div className="text-emerald-400 text-xs mt-0.5">${l.cost.toFixed(2)}</div>}
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 <button onClick={() => startEdit(l)} className="p-1.5 text-white/30 hover:text-emerald-400">
@@ -212,9 +224,4 @@ export default function LodgingPanel({ trip, onUpdate }: Props) {
       })}
     </div>
   )
-}
-
-// Helper export — used by day page to find the base for a given date
-export function getLodgingForDate(lodgings: Lodging[], date: string): Lodging | undefined {
-  return lodgings.find(l => l.checkIn <= date && date <= l.checkOut)
 }

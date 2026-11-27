@@ -231,11 +231,26 @@ export const STOP_TYPE_ICONS: Record<StopType, string> = {
   love_lock: '🔒',
 }
 
-export const FUEL_PRICES: Record<FuelType, number> = {
-  regular: 3.45,
-  premium: 3.85,
-  diesel: 3.65,
-  electric: 0.15, // per kWh, handled differently
+// Fuel prices: see lib/domain/fuel.ts (DEFAULT_FUEL_PRICES + the Settings page prices).
+
+/** What /api/flights returns for a flight-number lookup. */
+export interface FlightAirport {
+  iata: string
+  name: string
+  city?: string
+  coords: Coordinates
+}
+export interface FlightLookupResult {
+  flightNumber: string
+  date: string
+  airline?: string
+  departureScheduled?: string
+  arrivalScheduled?: string
+  from: FlightAirport | null
+  to: FlightAirport | null
+  trackPoints: [number, number][]
+  durationMinutes: number | null
+  source: string
 }
 
 // ─── New Feature Types ─────────────────────────────────────────────────────────

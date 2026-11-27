@@ -54,26 +54,6 @@ export async function getRoute(
   }
 }
 
-// ─── Fuel Calculations ────────────────────────────────────────────────────────
-
-export function calculateFuelCost(
-  distanceMiles: number,
-  mpg: number,
-  pricePerGallon: number
-): { gallons: number; cost: number } {
-  const gallons = distanceMiles / mpg
-  return {
-    gallons: Math.round(gallons * 100) / 100,
-    cost: Math.round(gallons * pricePerGallon * 100) / 100,
-  }
-}
-
-export function estimateTolls(distanceMiles: number): number {
-  // Very rough estimate: ~$0.05/mile average in high-toll areas
-  // This is a placeholder — real toll calculation requires TollGuru or similar
-  return Math.round(distanceMiles * 0.04 * 100) / 100
-}
-
 // ─── Map URL Generators ───────────────────────────────────────────────────────
 
 export function getGoogleMapsUrl(
