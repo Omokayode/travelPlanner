@@ -106,9 +106,8 @@ Expense receipts are files in `RECEIPTS_DIR` (`/app/data/receipts` in the image 
 there, as `docker-compose.yml` does) and are served at
 `/api/trips/<trip>/expenses/<expense>/receipt`. Back that folder up along with the database.
 
-Before 1.5.0 each day was one JSON blob (`Day.data`) and lodgings were JSON on the trip. The
-1.5.0 migration copies them into the tables and leaves the old columns in place, unused, so the
-move can be checked; a later migration removes them.
+Before 1.5.0 each day was one JSON blob (`Day.data`) and lodgings were JSON on the trip; 1.5.0
+copied them into the tables and 1.6.1 removed the old columns.
 
 ## Login
 

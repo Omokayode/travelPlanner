@@ -48,8 +48,6 @@ model Trip {
   vehicle        Json?
   homeCoords     Json?
   proposedBudget Json?
-  /// Lodgings as stored before Phase 2 (now in Lodging). Kept until the move is verified; no longer written.
-  legacyLodgings Json?    @map("lodgings")
   /// Secret for the read-only share link (/share/<token>); null = not shared.
   shareToken     String?  @unique
 
@@ -81,8 +79,6 @@ model Day {
   startCity  String?
   endCity    String?
   visited    Boolean  @default(false)
-  /// The whole day as stored before Phase 2. Kept until the move is verified; no longer written.
-  legacyData Json?    @map("data")
 
   trip       Trip       @relation(fields: [tripId], references: [id], onDelete: Cascade)
   segments   Segment[]

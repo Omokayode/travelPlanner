@@ -160,9 +160,9 @@ export function toLodging(l: LodgingRow): Lodging {
   }) as Lodging
 }
 
-/** A trip as the browser expects it. The pre-Phase-2 JSON column is never sent. */
+/** A trip as the browser expects it. */
 export function toTrip(t: TripRow) {
-  const { legacyLodgings: _legacy, days, lodgings, startDate, endDate, totalBudget, ...rest } = t
+  const { days, lodgings, startDate, endDate, totalBudget, ...rest } = t
   return {
     ...rest,
     startDate: isoDate(startDate),
