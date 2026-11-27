@@ -10,7 +10,7 @@ const LeafletMap = dynamic(() => import('./LeafletMap'), {
   ssr: false,
   loading: () => (
     <div className="w-full bg-surface rounded-xl flex items-center justify-center border border-line animate-pulse"
-      style={{ height: '400px' }}>
+      style={{ height: 'clamp(240px, 40vh, 400px)' }}>
       <div className="text-center">
         <div className="text-2xl mb-2">🗺️</div>
         <div className="text-sm text-ink-4">Loading map…</div>

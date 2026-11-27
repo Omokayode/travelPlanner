@@ -19,7 +19,7 @@ export default function Toaster() {
 
   if (!items.length) return null
   return (
-    <div className="fixed bottom-4 right-4 left-4 sm:left-auto z-[2000] flex flex-col gap-2 sm:w-96" role="status" aria-live="polite">
+    <div className="toasts fixed bottom-4 right-4 left-4 sm:left-auto z-[2000] flex flex-col gap-2 sm:w-96" role="status" aria-live="polite">
       {items.map((t) => (
         <div
           key={t.id}

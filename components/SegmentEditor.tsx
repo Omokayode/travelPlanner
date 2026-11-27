@@ -135,7 +135,7 @@ export default function SegmentEditor({ segment, vehicle, defaultFrom, onSave, o
       {/* Transport mode */}
       <div>
         <label className="tp-label">Mode of Transport</label>
-        <div className="grid grid-cols-6 gap-1.5">
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
           {MODES.map(({ mode: m, icon: Icon, label }) => (
             <button
               key={m}

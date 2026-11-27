@@ -133,88 +133,93 @@ body {
 }
 .leaflet-marker-icon { filter: drop-shadow(0 2px 6px rgb(0 0 0 / 0.4)); }
 
-/* Inputs */
-.tp-input {
-  @apply w-full bg-surface border border-line text-ink rounded-lg px-3 py-2 text-sm
-    placeholder:text-ink-4 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30
-    transition-all duration-200;
-}
-
-.tp-label {
-  @apply text-xs font-medium text-ink-2 uppercase tracking-wide mb-1 block;
-}
-
-.tp-card {
-  @apply bg-card border border-line rounded-xl p-4;
-}
-
-.tp-btn {
-  @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm
-    transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
-}
-
-.tp-btn-primary {
-  @apply tp-btn bg-emerald-500 text-white hover:bg-emerald-400 active:scale-95;
-}
-
-.tp-btn-ghost {
-  @apply tp-btn bg-transparent text-ink-2 hover:bg-card hover:text-ink border border-line;
-}
-
-.tp-btn-danger {
-  @apply tp-btn bg-red-500/10 text-danger hover:bg-red-500/20 border border-red-500/20;
-}
-
 /* Keyboard focus is always visible */
 :focus-visible {
   outline: 2px solid rgb(var(--accent));
   outline-offset: 2px;
 }
 
-/* Section divider */
-.section-divider {
-  @apply border-t border-line my-4;
+/* Shared component classes. In the components layer so utilities on an element win (pl-7 over px-3). */
+@layer components {
+  /* Inputs */
+  .tp-input {
+    @apply w-full bg-surface border border-line text-ink rounded-lg px-3 py-2 text-sm
+      placeholder:text-ink-4 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30
+      transition-all duration-200;
+  }
+
+  .tp-label {
+    @apply text-xs font-medium text-ink-2 uppercase tracking-wide mb-1 block;
+  }
+
+  .tp-card {
+    @apply bg-card border border-line rounded-xl p-4;
+  }
+
+  .tp-btn {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm
+      transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .tp-btn-primary {
+    @apply tp-btn bg-emerald-500 text-white hover:bg-emerald-400 active:scale-95;
+  }
+
+  .tp-btn-ghost {
+    @apply tp-btn bg-transparent text-ink-2 hover:bg-card hover:text-ink border border-line;
+  }
+
+  .tp-btn-danger {
+    @apply tp-btn bg-red-500/10 text-danger hover:bg-red-500/20 border border-red-500/20;
+  }
+
+
+  /* Section divider */
+  .section-divider {
+    @apply border-t border-line my-4;
+  }
+
+  /* Badge */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  /* Loading placeholder */
+  .skeleton {
+    @apply bg-ink/[0.06] rounded-lg animate-pulse;
+  }
+
+  /* Animate stagger */
+  .stagger-1 { animation-delay: 0.05s; animation-fill-mode: both; }
+  .stagger-2 { animation-delay: 0.10s; animation-fill-mode: both; }
+  .stagger-3 { animation-delay: 0.15s; animation-fill-mode: both; }
+  .stagger-4 { animation-delay: 0.20s; animation-fill-mode: both; }
+  .stagger-5 { animation-delay: 0.25s; animation-fill-mode: both; }
+
+  /* Status pill */
+  .status-active { @apply badge bg-green-500/15 text-ok border border-green-500/20; }
+  .status-planned { @apply badge bg-emerald-500/15 text-accent border border-emerald-500/20; }
+  .status-completed { @apply badge bg-blue-500/15 text-info border border-blue-500/20; }
+
+  /* Transport mode badge */
+  .mode-drive { @apply badge bg-emerald-500/20 text-accent; }
+  .mode-flight { @apply badge bg-blue-500/20 text-info; }
+  .mode-train { @apply badge bg-green-500/20 text-ok; }
+  .mode-bus { @apply badge bg-purple-500/20 text-special; }
+
+  /* Day card */
+  .day-card {
+    @apply bg-card border border-line rounded-xl overflow-hidden
+      hover:border-emerald-500/30 transition-all duration-300 cursor-pointer;
+  }
+
+  .day-card:hover {
+    box-shadow: 0 0 0 1px rgb(16 185 129 / 0.2), 0 8px 30px rgb(var(--shadow) / 0.15);
+  }
 }
 
-/* Badge */
-.badge {
-  @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium;
-}
-
-/* Loading placeholder */
-.skeleton {
-  @apply bg-ink/[0.06] rounded-lg animate-pulse;
-}
-
-/* Animate stagger */
-.stagger-1 { animation-delay: 0.05s; animation-fill-mode: both; }
-.stagger-2 { animation-delay: 0.10s; animation-fill-mode: both; }
-.stagger-3 { animation-delay: 0.15s; animation-fill-mode: both; }
-.stagger-4 { animation-delay: 0.20s; animation-fill-mode: both; }
-.stagger-5 { animation-delay: 0.25s; animation-fill-mode: both; }
-
-/* Status pill */
-.status-active { @apply badge bg-green-500/15 text-ok border border-green-500/20; }
-.status-planned { @apply badge bg-emerald-500/15 text-accent border border-emerald-500/20; }
-.status-completed { @apply badge bg-blue-500/15 text-info border border-blue-500/20; }
-
-/* Transport mode badge */
-.mode-drive { @apply badge bg-emerald-500/20 text-accent; }
-.mode-flight { @apply badge bg-blue-500/20 text-info; }
-.mode-train { @apply badge bg-green-500/20 text-ok; }
-.mode-bus { @apply badge bg-purple-500/20 text-special; }
-
-/* Day card */
-.day-card {
-  @apply bg-card border border-line rounded-xl overflow-hidden
-    hover:border-emerald-500/30 transition-all duration-300 cursor-pointer;
-}
-
-.day-card:hover {
-  box-shadow: 0 0 0 1px rgb(16 185 129 / 0.2), 0 8px 30px rgb(var(--shadow) / 0.15);
-}
-
-/* Phones: room for the bottom tab bar */
+/* Phones: room for the bottom tab bar (pages with the Navbar), and toasts sit above it */
 @media (max-width: 767px) {
-  .has-tabbar { padding-bottom: calc(4.5rem + env(safe-area-inset-bottom)); }
+  body:has(.tabbar) { padding-bottom: calc(4.25rem + env(safe-area-inset-bottom)); }
+  body:has(.tabbar) .toasts { bottom: calc(4.75rem + env(safe-area-inset-bottom)); }
 }

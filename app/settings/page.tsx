@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Settings, Car, Fuel, Camera, Plus, Trash2, Check, Loader2, Palette } from 'lucide-react'
-import Navbar from '@/components/Navbar'
+import { Settings, Car, Fuel, Camera, Plus, Trash2, Check, Loader2, Palette, LogOut } from 'lucide-react'
+import Navbar, { signOut } from '@/components/Navbar'
 import ThemeSwitch from '@/components/ui/ThemeSwitch'
 import { Vehicle, FuelType } from '@/lib/types'
 import { DEFAULT_FUEL_PRICES, DEFAULT_MPG } from '@/lib/domain/fuel'
@@ -293,6 +293,11 @@ export default function SettingsPage() {
             </div>
           )}
         </section>
+
+        {/* Phones have no sign-out in the top bar */}
+        <button type="button" onClick={signOut} className="md:hidden tp-btn-ghost w-full justify-center">
+          <LogOut className="w-4 h-4" /> Sign out
+        </button>
       </div>
     </div>
   )

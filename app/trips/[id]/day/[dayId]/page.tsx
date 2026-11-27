@@ -191,20 +191,21 @@ export default function DayPage() {
               Day {day.dayNumber}
               {day.title && ` · ${day.title}`}
             </h1>
-            <div className="flex items-center gap-2 text-sm text-ink/40 mt-1">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-ink-3 mt-1">
               <Calendar className="w-3.5 h-3.5" />
-              {format(parseISO(day.date), 'EEEE, MMMM d, yyyy')}
+              <span className="sm:hidden">{format(parseISO(day.date), 'EEE, MMM d, yyyy')}</span>
+              <span className="hidden sm:inline">{format(parseISO(day.date), 'EEEE, MMMM d, yyyy')}</span>
               {(day.startCity || day.endCity) && (
-                <>
-                  <span className="opacity-30">·</span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="opacity-30 mr-1">·</span>
                   {day.startCity}
                   {day.startCity && day.endCity && <ChevronRight className="w-3.5 h-3.5 text-accent" />}
                   {day.endCity}
-                </>
+                </span>
               )}
             </div>
             {dayLodging && (
-              <div className="flex items-center gap-1.5 text-sm text-info/70 mt-1">
+              <div className="flex flex-wrap items-center gap-x-1.5 text-sm text-info/80 mt-1">
                 🏨 Base: <span className="font-medium text-info">{dayLodging.name}</span>
                 <span className="text-ink/30 text-xs">· {dayLodging.location?.city || dayLodging.location?.name}</span>
               </div>
@@ -212,15 +213,17 @@ export default function DayPage() {
           </div>
           <button
             onClick={handleToggleVisited}
+            aria-pressed={day.visited}
             className={clsx(
-              'flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium border transition-all',
+              'shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium border transition-all',
               day.visited
                 ? 'border-green-500/30 bg-green-500/10 text-ok'
                 : 'border-ink/10 text-ink/40 hover:border-green-500/30 hover:text-ok'
             )}
           >
             {day.visited ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-4 h-4" />}
-            {day.visited ? 'Completed' : 'Mark done'}
+            <span className="hidden sm:inline">{day.visited ? 'Completed' : 'Mark done'}</span>
+            <span className="sm:hidden">{day.visited ? 'Done' : 'Done?'}</span>
           </button>
         </div>
 
@@ -229,7 +232,7 @@ export default function DayPage() {
           <div className="xl:col-span-3 space-y-4">
             {/* Map */}
             <div className="tp-card p-0 overflow-hidden">
-              <MapView segments={mapSegments} stops={allStops} height="380px" />
+              <MapView segments={mapSegments} stops={allStops} height="clamp(240px, 40vh, 380px)" />
             </div>
 
             {/* Open in maps */}
@@ -253,7 +256,7 @@ export default function DayPage() {
 
             {/* Day stats */}
             {(totalMiles > 0 || totalCost > 0) && (
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {totalMiles > 0 && isRoadTrip && <StatTile icon="🗺️" label="Miles" value={Math.round(totalMiles).toString()} />}
                 {totalDriveMins > 0 && <StatTile icon="⏱️" label="Drive" value={`${Math.floor(totalDriveMins / 60)}h${Math.round(totalDriveMins % 60)}m`} />}
                 {totalFuel > 0 && <StatTile icon="⛽" label="Fuel" value={`$${totalFuel.toFixed(2)}`} />}

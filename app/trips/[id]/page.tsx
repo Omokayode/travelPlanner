@@ -7,7 +7,7 @@ import { confirmDialog } from '@/components/ui/Confirm'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { format, parseISO } from 'date-fns'
-import { ArrowLeft, Car, Plane, Train, Layers, CalendarDays, MapPin, ExternalLink, Trash2, Navigation, Globe, Loader2, Edit2, Check, Plus } from 'lucide-react'
+import { ArrowLeft, Car, Plane, Train, Layers, CalendarDays, MapPin, ExternalLink, Trash2, Navigation, Globe, Loader2, Edit2, Check, Plus, List, GitCommitVertical } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import MapView from '@/components/MapView'
 import PackingListPanel from '@/components/PackingListPanel'
@@ -40,6 +40,14 @@ export default function TripPage() {
   const [newEnd, setNewEnd] = useState('')
   const [savingDates, setSavingDates] = useState(false)
   const [dateConfirm, setDateConfirm] = useState<{ add: number; remove: number } | null>(null)
+  const [dayView, setDayView] = useState<'list' | 'timeline'>('list')
+  useEffect(() => {
+    try { if (localStorage.getItem('tp-day-view') === 'timeline') setDayView('timeline') } catch { /* no storage */ }
+  }, [])
+  const chooseDayView = (v: 'list' | 'timeline') => {
+    setDayView(v)
+    try { localStorage.setItem('tp-day-view', v) } catch { /* no storage */ }
+  }
 
   const load = useCallback(async () => {
     try {
@@ -212,7 +220,7 @@ export default function TripPage() {
         </Dialog>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-6 p-1 bg-ink/5 rounded-xl w-fit overflow-x-auto">
+        <div role="tablist" className="flex gap-1 mb-6 p-1 bg-ink/5 rounded-xl w-fit max-w-full overflow-x-auto">
           {([
             ['itinerary', 'Itinerary', '🗺️'],
             ['photos', 'Photos', '🖼️'],
@@ -233,7 +241,7 @@ export default function TripPage() {
             {/* Map + stats */}
             <div className="lg:col-span-2 space-y-4">
               <div className="tp-card p-0 overflow-hidden">
-                <MapView segments={allMapSegments} stops={allStops} height="420px" />
+                <MapView segments={allMapSegments} stops={allStops} height="clamp(260px, 45vh, 420px)" />
               </div>
               {firstSeg && lastSeg && (
                 <div className="flex gap-2">
@@ -250,30 +258,44 @@ export default function TripPage() {
                   )}
                 </div>
               )}
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <StatTile icon="🗺️" label="Miles" value={stats.totalMiles > 0 ? stats.totalMiles.toLocaleString() : '–'} />
                 <StatTile icon="⏱️" label="Drive Time" value={stats.totalDrivingHours > 0 ? `${stats.totalDrivingHours}h` : '–'} />
                 <StatTile icon="⛽" label="Fuel" value={stats.totalFuelCost > 0 ? `$${stats.totalFuelCost}` : '–'} />
                 <StatTile icon="✅" label="Done" value={`${daysComplete}/${trip.days?.length || 0}`} />
               </div>
-
-              {/* Timeline */}
-              <TripTimeline trip={trip} />
             </div>
 
             {/* Day list sidebar */}
             <div className="space-y-3">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="font-display text-xl font-semibold text-ink">Days</h2>
-                <span className="text-xs text-ink/30">{daysComplete}/{trip.days?.length || 0} complete</span>
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <div>
+                  <h2 className="font-display text-xl font-semibold text-ink">Days</h2>
+                  <span className="text-xs text-ink-3">{daysComplete}/{trip.days?.length || 0} complete</span>
+                </div>
+                <div role="radiogroup" aria-label="Days view" className="flex p-0.5 rounded-lg bg-ink/5 text-xs">
+                  {(['list', 'timeline'] as const).map(v => (
+                    <button key={v} type="button" role="radio" aria-checked={dayView === v} onClick={() => chooseDayView(v)}
+                      className={clsx('flex items-center gap-1 px-2.5 py-1 rounded-md capitalize',
+                        dayView === v ? 'bg-card text-ink shadow-sm' : 'text-ink-3 hover:text-ink')}>
+                      {v === 'list' ? <List className="w-3.5 h-3.5" /> : <GitCommitVertical className="w-3.5 h-3.5" />}{v}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="space-y-2 max-h-[700px] overflow-y-auto pr-1">
-                {trip.days?.map(day => (
-                  <DayRow key={day.id} day={day} tripId={tripId} isRoadTrip={trip.type === 'road_trip'}
-                    lodging={lodgingForDate(trip.lodgings, day.date)}
-                    onToggleVisited={() => handleMarkVisited(day)} />
-                ))}
-              </div>
+              {dayView === 'list' ? (
+                <div className="space-y-2 lg:max-h-[700px] lg:overflow-y-auto lg:pr-1">
+                  {trip.days?.map(day => (
+                    <DayRow key={day.id} day={day} tripId={tripId} isRoadTrip={trip.type === 'road_trip'}
+                      lodging={lodgingForDate(trip.lodgings, day.date)}
+                      onToggleVisited={() => handleMarkVisited(day)} />
+                  ))}
+                </div>
+              ) : (
+                <div className="tp-card lg:max-h-[700px] lg:overflow-y-auto">
+                  <TripTimeline trip={trip} />
+                </div>
+              )}
 
               {(trip.visitedCities?.length ?? 0) > 0 && (
                 <div className="tp-card mt-4">
