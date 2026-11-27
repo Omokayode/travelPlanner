@@ -1,7 +1,7 @@
 // components/SegmentEditor.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import {
   Car, Plane, Train, Bus, Ship, Footprints, Loader2, Fuel, X, Check, Clock, Route, AlertCircle
@@ -62,25 +62,7 @@ export default function SegmentEditor({ segment, vehicle, defaultFrom, onSave, o
   const [confirmationText, setConfirmationText] = useState(segment?.confirmationText || '')
   const [notes, setNotes] = useState(segment?.notes || '')
 
-  // Auto-calculate route when from/to set for drive mode
-  useEffect(() => {
-    if (from && to && mode === 'drive') {
-      fetchRoute()
-    }
-  }, [from, to, mode])
-
-  // Auto-recalc fuel when distance or price changes
-  useEffect(() => {
-    if (mode === 'drive' && distance > 0) {
-      const c = driveCosts(distance, vehicle, fuelPriceOverride)
-      setFuelGallons(c.fuelGallons)
-      setFuelCost(c.fuelCost)
-      setTollCost(c.tollCost)
-      setCost(c.cost)
-    }
-  }, [distance, vehicle, fuelPriceOverride, mode])
-
-  const fetchRoute = async () => {
+  const fetchRoute = useCallback(async () => {
     if (!from || !to) return
     setLoadingRoute(true)
     setRouteError('')
@@ -98,7 +80,27 @@ export default function SegmentEditor({ segment, vehicle, defaultFrom, onSave, o
     } finally {
       setLoadingRoute(false)
     }
-  }
+  }, [from, to])
+
+  // Auto-calculate the route for drives — but only when start, end or mode actually change.
+  // Opening an existing leg must not re-route it (that dropped the stops' waypoints and changed costs).
+  const initialRoute = useRef({ from: segment?.from?.id, to: segment?.to?.id, mode: segment?.mode, has: !!segment?.distance })
+  useEffect(() => {
+    const i = initialRoute.current
+    if (i.has && from?.id === i.from && to?.id === i.to && mode === i.mode) return
+    if (from && to && mode === 'drive') fetchRoute()
+  }, [from, to, mode, fetchRoute])
+
+  // Auto-recalc fuel when distance or price changes
+  useEffect(() => {
+    if (mode === 'drive' && distance > 0) {
+      const c = driveCosts(distance, vehicle, fuelPriceOverride)
+      setFuelGallons(c.fuelGallons)
+      setFuelCost(c.fuelCost)
+      setTollCost(c.tollCost)
+      setCost(c.cost)
+    }
+  }, [distance, vehicle, fuelPriceOverride, mode])
 
   const handleSave = () => {
     if (!from || !to) return

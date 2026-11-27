@@ -8,6 +8,7 @@ import { Stop, StopType, Segment, GeoLocation, Vehicle, STOP_TYPE_ICONS } from '
 import { getRoute } from '@/lib/api'
 import { driveCosts, fuelPrice } from '@/lib/domain/fuel'
 import { useAppSettings } from '@/lib/useAppSettings'
+import { api, reportError, toast } from '@/lib/client'
 import LocationSearch from './LocationSearch'
 import clsx from 'clsx'
 
@@ -71,22 +72,17 @@ export default function StopPanel({ segment, vehicle, onUpdate, onUpdateSegment 
     setLoading(true)
     setSuggestions([])
     try {
-      const res = await fetch('/api/stops', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from: segment.from.coords,
-          to: segment.to.coords,
-          preferences: selectedPrefs,
-          routeCoords: segment.routeCoords || [],
-        }),
+      const suggested = await api<Stop[]>('/api/stops', 'POST', {
+        from: segment.from.coords,
+        to: segment.to.coords,
+        preferences: selectedPrefs,
+        routeCoords: segment.routeCoords || [],
       })
-      if (!res.ok) throw new Error('Failed to fetch stops')
-      const suggested: Stop[] = await res.json()
       // Filter out already-added stops
       setSuggestions(suggested.filter(s => !stops.find(e => e.osmId === s.osmId)))
+      if (!suggested.length) toast.info('No suggestions found near this route — try other categories.')
     } catch (err) {
-      console.error('Stop fetch error:', err)
+      reportError(err, 'Could not find stops (the OpenStreetMap service may be busy — try again)')
     } finally {
       setLoading(false)
     }

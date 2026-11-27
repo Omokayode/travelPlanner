@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import { Cloud, RefreshCw, MapPin, Thermometer, Droplets } from 'lucide-react'
-import { WeatherDay } from '@/lib/types'
+import { useWeather } from '@/lib/useWeather'
 import clsx from 'clsx'
 
 interface Props {
@@ -13,31 +12,7 @@ interface Props {
 }
 
 export default function WeatherCard({ dayDate, locationName, lat, lng }: Props) {
-  const [weather, setWeather] = useState<WeatherDay | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const fetchWeather = async () => {
-    if (!lat || !lng) return
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await fetch(
-        `/api/weather?lat=${lat}&lng=${lng}&start=${dayDate}&end=${dayDate}`
-      )
-      if (!res.ok) throw new Error('Weather unavailable')
-      const days: WeatherDay[] = await res.json()
-      setWeather(days[0] || null)
-    } catch (err) {
-      setError('Could not load weather')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchWeather()
-  }, [lat, lng, dayDate])
+  const { weather, loading, error, retry: fetchWeather } = useWeather(lat, lng, dayDate)
 
   if (!lat || !lng) {
     return (

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { api, reportError } from '@/lib/client'
 import { Plus, Trash2, Edit2, X, Check, Camera, Loader2, Receipt } from 'lucide-react'
 import { Expense, ExpenseCategory, EXPENSE_CATEGORY_ICONS, EXPENSE_CATEGORY_COLORS, Trip } from '@/lib/types'
 import { tripStats } from '@/lib/domain/trip'
@@ -64,7 +65,7 @@ function deriveProposed(trip?: Trip): ProposedItem[] {
 export default function BudgetPanel({ tripId, trip, filterDayId }: Props) {
   const [mode, setMode] = useState<PanelMode>('proposed')
   const [expenses, setExpenses] = useState<Expense[]>([])
-  const [proposedItems, setProposedItems] = useState<ProposedItem[]>([])
+  const [manualItems, setManualItems] = useState<ProposedItem[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -76,32 +77,35 @@ export default function BudgetPanel({ tripId, trip, filterDayId }: Props) {
   const [showAddProposed, setShowAddProposed] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const load = async () => {
-    try {
-      const [expRes, propRes] = await Promise.all([
-        fetch(`/api/trips/${tripId}/expenses`),
-        fetch(`/api/trips/${tripId}/budget`),
-      ])
-      const expData: Expense[] = await expRes.json()
-      const propData: ProposedItem[] = await propRes.json()
-      setExpenses(expData)
-      // Merge auto-derived with saved manual proposed items
-      const autoItems = deriveProposed(trip)
-      const manualItems = (Array.isArray(propData) ? propData : []).filter((p: ProposedItem) => p.source === 'manual')
-      setProposedItems([...autoItems, ...manualItems])
-    } catch { /* ignore */ }
-    setLoading(false)
-  }
+  useEffect(() => {
+    let alive = true
+    Promise.all([
+      api<Expense[]>(`/api/trips/${tripId}/expenses`),
+      api<ProposedItem[]>(`/api/trips/${tripId}/budget`),
+    ])
+      .then(([exp, saved]) => {
+        if (!alive) return
+        setExpenses(exp)
+        setManualItems((Array.isArray(saved) ? saved : []).filter(p => p.source === 'manual'))
+      })
+      .catch(err => alive && reportError(err, 'Could not load the budget'))
+      .finally(() => alive && setLoading(false))
+    return () => { alive = false }
+  }, [tripId])
 
-  useEffect(() => { load() }, [tripId])
+  // Auto items (fuel, tolls, lodging) always follow the current trip; manual ones are saved.
+  const proposedItems = useMemo(() => [...deriveProposed(trip), ...manualItems], [trip, manualItems])
 
   const saveProposed = async (items: ProposedItem[]) => {
-    setProposedItems(items)
+    const before = manualItems
     const manualOnly = items.filter(i => i.source === 'manual')
-    await fetch(`/api/trips/${tripId}/budget`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(manualOnly),
-    })
+    setManualItems(manualOnly)
+    try {
+      await api(`/api/trips/${tripId}/budget`, 'PUT', manualOnly)
+    } catch (err) {
+      setManualItems(before)
+      reportError(err, 'Could not save the budget')
+    }
   }
 
   const addProposedItem = async () => {
@@ -142,27 +146,31 @@ export default function BudgetPanel({ tripId, trip, filterDayId }: Props) {
     if (!form.name.trim() || !form.amount) return
     setSaving(true)
     try {
-      const payload = { ...form, amount: parseFloat(form.amount), dayId: filterDayId ?? null, tripId }
-      let res: Response
+      const amount = parseFloat(form.amount)
+      if (!Number.isFinite(amount)) { reportError(null, 'Enter the amount as a number'); return }
+      const payload = { ...form, amount, dayId: filterDayId ?? null }
       if (editingId) {
-        res = await fetch(`/api/trips/${tripId}/expenses/${editingId}`, {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
-        })
-        const updated = await res.json()
+        const updated = await api<Expense>(`/api/trips/${tripId}/expenses/${editingId}`, 'PUT', payload)
         setExpenses(prev => prev.map(e => e.id === editingId ? updated : e))
       } else {
-        res = await fetch(`/api/trips/${tripId}/expenses`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
-        })
-        const created = await res.json(); setExpenses(prev => [...prev, created])
+        const created = await api<Expense>(`/api/trips/${tripId}/expenses`, 'POST', payload)
+        setExpenses(prev => [...prev, created])
       }
       setShowForm(false); setEditingId(null); setForm(emptyForm())
+    } catch (err) {
+      reportError(err, 'Could not save the expense') // form stays open
     } finally { setSaving(false) }
   }
 
   const deleteExpense = async (id: string) => {
+    const before = expenses
     setExpenses(prev => prev.filter(e => e.id !== id))
-    await fetch(`/api/trips/${tripId}/expenses/${id}`, { method: 'DELETE' })
+    try {
+      await api(`/api/trips/${tripId}/expenses/${id}`, 'DELETE')
+    } catch (err) {
+      setExpenses(before)
+      reportError(err, 'Could not delete the expense')
+    }
   }
 
   const startEdit = (expense: Expense) => {
@@ -334,6 +342,7 @@ export default function BudgetPanel({ tripId, trip, filterDayId }: Props) {
                 <div className="text-white/50 text-xs mb-2">Receipt photo</div>
                 {form.receipt ? (
                   <div className="relative inline-block">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- inline data: URL, nothing to optimise */}
                     <img src={form.receipt} alt="Receipt" className="h-28 rounded-xl object-cover border border-white/10" />
                     <button onClick={() => setForm(f => ({ ...f, receipt: null }))}
                       className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 flex items-center justify-center">
@@ -434,6 +443,7 @@ export default function BudgetPanel({ tripId, trip, filterDayId }: Props) {
       {viewReceipt && (
         <div className="fixed inset-0 bg-black/90 z-[1000] flex items-center justify-center p-4"
           onClick={() => setViewReceipt(null)}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- inline data: URL, nothing to optimise */}
           <img src={viewReceipt} alt="Receipt" className="max-w-full max-h-full rounded-xl" />
           <button className="absolute top-4 right-4 text-white/60 hover:text-white">
             <X className="w-8 h-8" />

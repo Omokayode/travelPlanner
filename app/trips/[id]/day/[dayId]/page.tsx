@@ -5,9 +5,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { format, parseISO } from 'date-fns'
-import {
-  ArrowLeft, Plus, Edit2, Trash2, Navigation, CheckCircle2, Circle, ChevronRight, ExternalLink, Calendar, Globe, Route, X, Mail, Loader2, Check
-} from 'lucide-react'
+import { ArrowLeft, Plus, Navigation, CheckCircle2, Circle, ChevronRight, ExternalLink, Calendar, Globe, Route, X, Mail, Loader2 } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import MapView from '@/components/MapView'
 import SegmentEditor from '@/components/SegmentEditor'
@@ -17,8 +15,13 @@ import WeatherCard from '@/components/WeatherCard'
 import BudgetPanel from '@/components/BudgetPanel'
 import ImmichPanel from '@/components/ImmichPanel'
 import { dayStops, dayTotals, lodgingForDate } from '@/lib/domain/trip'
-import { Day, Trip, Segment, Activity, TRANSPORT_ICONS, TRANSPORT_COLORS, Stop, WeatherDay } from '@/lib/types'
+import { Day, Trip, Segment, Activity, Stop } from '@/lib/types'
 import { getGoogleMapsUrl, getWazeUrl } from '@/lib/api'
+import { api, ApiError, reportError } from '@/lib/client'
+import StatTile from '@/components/ui/StatTile'
+import SegmentCard from '@/components/day/SegmentCard'
+import DayNotes from '@/components/day/DayNotes'
+import WeatherStrip from '@/components/day/WeatherStrip'
 import clsx from 'clsx'
 
 type PanelTab = 'photos' | 'stops' | 'activities' | 'weather' | 'budget' | 'notes'
@@ -38,30 +41,35 @@ export default function DayPage() {
   const [expandedSegId, setExpandedSegId] = useState<string | null>(null)
   const [showConfirmation, setShowConfirmation] = useState<string | null>(null)
 
-  const load = async () => {
+  useEffect(() => {
+    let alive = true
+    api<Trip>(`/api/trips/${tripId}`)
+      .then(t => {
+        if (!alive) return
+        const d = t.days?.find(x => x.id === dayId)
+        if (!d) { router.push(`/trips/${tripId}`); return }
+        setTrip(t)
+        setDay(d)
+      })
+      .catch(err => {
+        if (!alive) return
+        reportError(err, 'Could not load this day')
+        router.push(err instanceof ApiError && err.status === 404 ? '/' : `/trips/${tripId}`)
+      })
+      .finally(() => alive && setLoading(false))
+    return () => { alive = false }
+  }, [tripId, dayId, router])
+
+  /** Saves the day; returns the saved day, or null (and shows the error) if it failed. */
+  const saveDay = async (updatedDay: Day): Promise<Day | null> => {
     try {
-      const tripRes = await fetch(`/api/trips/${tripId}`)
-      const t: Trip = await tripRes.json()
-      if (!t || !t.days) { router.push(`/trips/${tripId}`); return }
-      const d = t.days.find((day: Day) => day.id === dayId)
-      if (!d) { router.push(`/trips/${tripId}`); return }
-      setTrip(t)
-      setDay(d)
-    } catch { router.push(`/trips/${tripId}`) }
-    setLoading(false)
-  }
-
-  useEffect(() => { load() }, [tripId, dayId])
-
-  const saveDay = async (updatedDay: Day) => {
-    const res = await fetch(`/api/trips/${tripId}/days/${dayId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updatedDay),
-    })
-    const saved = await res.json()
-    setDay(saved)
-    return saved
+      const saved = await api<Day>(`/api/trips/${tripId}/days/${dayId}`, 'PUT', updatedDay)
+      setDay(saved)
+      return saved
+    } catch (err) {
+      reportError(err, 'Could not save the day')
+      return null
+    }
   }
 
   const handleSaveSegment = async (seg: Segment) => {
@@ -78,7 +86,7 @@ export default function DayPage() {
       startCity: segments[0]?.from.city || segments[0]?.from.state || segments[0]?.from.name,
       endCity: segments[segments.length - 1]?.to.city || segments[segments.length - 1]?.to.state || segments[segments.length - 1]?.to.name,
     }
-    await saveDay(updated)
+    if (!(await saveDay(updated))) return // keep the editor open so nothing typed is lost
     setAddingSegment(false)
     setEditingSegment(null)
   }
@@ -245,10 +253,10 @@ export default function DayPage() {
             {/* Day stats */}
             {(totalMiles > 0 || totalCost > 0) && (
               <div className="grid grid-cols-4 gap-3">
-                {totalMiles > 0 && isRoadTrip && <DayStat icon="🗺️" label="Miles" value={Math.round(totalMiles).toString()} />}
-                {totalDriveMins > 0 && <DayStat icon="⏱️" label="Drive" value={`${Math.floor(totalDriveMins / 60)}h${Math.round(totalDriveMins % 60)}m`} />}
-                {totalFuel > 0 && <DayStat icon="⛽" label="Fuel" value={`$${totalFuel.toFixed(2)}`} />}
-                {totalCost > 0 && <DayStat icon="💵" label="Total" value={`$${totalCost.toFixed(2)}`} />}
+                {totalMiles > 0 && isRoadTrip && <StatTile icon="🗺️" label="Miles" value={Math.round(totalMiles).toString()} />}
+                {totalDriveMins > 0 && <StatTile icon="⏱️" label="Drive" value={`${Math.floor(totalDriveMins / 60)}h${Math.round(totalDriveMins % 60)}m`} />}
+                {totalFuel > 0 && <StatTile icon="⛽" label="Fuel" value={`$${totalFuel.toFixed(2)}`} />}
+                {totalCost > 0 && <StatTile icon="💵" label="Total" value={`$${totalCost.toFixed(2)}`} />}
               </div>
             )}
 
@@ -403,160 +411,6 @@ export default function DayPage() {
           </div>
         </div>
       )}
-    </div>
-  )
-}
-
-function SegmentCard({ segment: seg, isRoadTrip, expanded, onToggle, onEdit, onDelete, onUpdateStops, onUpdateSegment, onShowConfirmation, vehicle }: {
-  segment: Segment; isRoadTrip: boolean; expanded: boolean
-  onToggle: () => void; onEdit: () => void; onDelete: () => void
-  onUpdateStops: (stops: Stop[]) => void
-  onUpdateSegment: (patch: Partial<Segment>) => void
-  onShowConfirmation: () => void
-  vehicle?: Trip['vehicle']
-}) {
-  const color = TRANSPORT_COLORS[seg.mode] || '#f59e0b'
-  return (
-    <div className="tp-card overflow-hidden">
-      <div className="flex items-start gap-3">
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0"
-          style={{ background: `${color}20`, border: `1px solid ${color}40` }}>
-          {TRANSPORT_ICONS[seg.mode]}
-        </div>
-        <div className="flex-1 min-w-0 cursor-pointer" onClick={onToggle}>
-          <div className="flex items-center gap-1.5 text-sm font-medium text-white">
-            <span className="truncate">{seg.from.name}</span>
-            <ChevronRight className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-            <span className="truncate">{seg.to.name}</span>
-          </div>
-          <div className="flex items-center gap-3 mt-0.5 text-xs text-white/40">
-            {!!seg.distance && <span>{Math.round(seg.distance)} mi</span>}
-            {!!seg.duration && <span>{Math.floor(seg.duration / 60)}h {Math.round(seg.duration % 60)}m</span>}
-            {!!seg.cost && <span className="text-green-400">${seg.cost.toFixed(2)}</span>}
-            {seg.carrier && <span>{seg.carrier} {seg.flightNumber}</span>}
-            {seg.stops?.length > 0 && <span>{seg.stops.length} stop{seg.stops.length !== 1 ? 's' : ''}</span>}
-          </div>
-        </div>
-        <div className="flex items-center gap-1 shrink-0">
-          {seg.confirmationText && (
-            <button onClick={onShowConfirmation} className="p-1.5 text-white/30 hover:text-emerald-400 transition-colors">
-              <Mail className="w-3.5 h-3.5" />
-            </button>
-          )}
-          <button onClick={onEdit} className="p-1.5 text-white/30 hover:text-emerald-400 transition-colors">
-            <Edit2 className="w-3.5 h-3.5" />
-          </button>
-          <button onClick={onDelete} className="p-1.5 text-white/30 hover:text-red-400 transition-colors">
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
-
-      {expanded && (
-        <div className="mt-3 pt-3 border-t border-white/6 space-y-3">
-          {isRoadTrip && (seg.fuelCost || seg.tollCost) && (
-            <div className="grid grid-cols-3 gap-2">
-              {!!seg.fuelGallons && <Detail label="Gallons" value={`${seg.fuelGallons.toFixed(2)} gal`} />}
-              {!!seg.fuelCost && <Detail label="Fuel Cost" value={`$${seg.fuelCost.toFixed(2)}`} />}
-              {!!seg.tollCost && <Detail label="Tolls" value={`$${seg.tollCost.toFixed(2)}`} />}
-            </div>
-          )}
-          {seg.departureTime && <Detail label="Departs" value={new Date(seg.departureTime).toLocaleString()} />}
-          {seg.arrivalTime && <Detail label="Arrives" value={new Date(seg.arrivalTime).toLocaleString()} />}
-          {seg.bookingRef && <Detail label="Ref #" value={seg.bookingRef} />}
-          {seg.notes && <div className="text-xs text-white/40 italic">{seg.notes}</div>}
-          {isRoadTrip && <StopPanel segment={seg} vehicle={vehicle} onUpdate={onUpdateStops} onUpdateSegment={onUpdateSegment} />}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="bg-white/4 rounded-lg px-2.5 py-1.5">
-      <div className="text-[10px] text-white/30 uppercase tracking-wide">{label}</div>
-      <div className="text-xs font-medium text-white/80">{value}</div>
-    </div>
-  )
-}
-
-function DayStat({ icon, label, value }: { icon: string; label: string; value: string }) {
-  return (
-    <div className="tp-card flex flex-col items-center gap-0.5 py-3">
-      <span className="text-base">{icon}</span>
-      <div className="text-sm font-semibold text-white">{value}</div>
-      <div className="text-[10px] text-white/30 uppercase tracking-wide">{label}</div>
-    </div>
-  )
-}
-
-function DayNotes({ notes, onSave }: { notes: string; onSave: (n: string) => void }) {
-  const [value, setValue] = useState(notes)
-  const [saved, setSaved] = useState(true)
-
-  return (
-    <div className="space-y-2">
-      <label className="text-white/50 text-xs uppercase tracking-wide">Day Notes</label>
-      <textarea
-        value={value}
-        onChange={e => { setValue(e.target.value); setSaved(false) }}
-        className="tp-input h-48 resize-none w-full"
-        placeholder="Notes for the day — observations, tips, memories…"
-      />
-      <button
-        onClick={() => { onSave(value); setSaved(true) }}
-        disabled={saved}
-        className="tp-btn w-full justify-center disabled:opacity-50"
-      >
-        {saved ? <><Check className="w-4 h-4" /> Saved</> : 'Save Notes'}
-      </button>
-    </div>
-  )
-}
-
-// ── Inline weather strip ────────────────────────────────────────────────────
-function WeatherStrip({ dayDate, lat, lng, locationName }: {
-  dayDate: string; lat: number; lng: number; locationName?: string
-}) {
-  const [weather, setWeather] = useState<WeatherDay | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    fetch(`/api/weather?lat=${lat}&lng=${lng}&start=${dayDate}&end=${dayDate}`)
-      .then(r => r.json())
-      .then(d => setWeather(d[0] || null))
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [lat, lng, dayDate])
-
-  if (loading) return (
-    <div className="tp-card px-4 py-3 flex items-center gap-2 text-white/30 text-sm animate-pulse">
-      🌡️ Loading weather…
-    </div>
-  )
-  if (!weather) return null
-
-  const hot = weather.tempMax >= 90
-  const cold = weather.tempMax <= 40
-  const rainy = weather.precipitation > 0.2
-
-  return (
-    <div className="tp-card px-4 py-3 flex items-center gap-4">
-      <span className="text-3xl">{weather.icon}</span>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-white font-semibold">{weather.tempMax}°F</span>
-          <span className="text-white/40 text-sm">/ {weather.tempMin}°F</span>
-          <span className="text-white/50 text-sm">{weather.description}</span>
-          {locationName && <span className="text-white/30 text-xs truncate">· {locationName}</span>}
-        </div>
-        <div className="flex gap-2 mt-0.5">
-          {rainy && <span className="text-xs text-blue-400">☔ {weather.precipitation}&quot; rain</span>}
-          {hot && <span className="text-xs text-orange-400">🌡️ Hot day</span>}
-          {cold && <span className="text-xs text-blue-300">🧥 Cold</span>}
-        </div>
-      </div>
     </div>
   )
 }

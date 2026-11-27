@@ -12,6 +12,7 @@ import '@fontsource/dm-sans/latin-400.css'
 import '@fontsource/dm-sans/latin-500.css'
 import '@fontsource/dm-sans/latin-600.css'
 import './globals.css'
+import Toaster from '@/components/Toaster'
 
 export const metadata: Metadata = {
   title: 'Trip by JKBLabs — Travel Planner',
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className="antialiased">
         {children}
+        <Toaster />
       </body>
     </html>
   )

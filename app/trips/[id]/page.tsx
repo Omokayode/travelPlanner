@@ -1,13 +1,11 @@
 // app/trips/[id]/page.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { format, parseISO } from 'date-fns'
-import {
-  ArrowLeft, Car, Plane, Train, Layers, CalendarDays, MapPin, ExternalLink, ChevronRight, ChevronDown, CheckCircle2, Circle, Trash2, Navigation, Globe, Loader2, Hotel, Edit2, X, Check, Plus
-} from 'lucide-react'
+import { ArrowLeft, Car, Plane, Train, Layers, CalendarDays, MapPin, ExternalLink, Trash2, Navigation, Globe, Loader2, Edit2, X, Check, Plus } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import MapView from '@/components/MapView'
 import PackingListPanel from '@/components/PackingListPanel'
@@ -15,10 +13,13 @@ import BudgetPanel from '@/components/BudgetPanel'
 import LodgingPanel from '@/components/LodgingPanel'
 import ImmichPanel from '@/components/ImmichPanel'
 import TripTimeline from '@/components/TripTimeline'
-import { Trip, Day, Lodging, TRANSPORT_ICONS } from '@/lib/types'
+import { Trip, Day, Lodging } from '@/lib/types'
 import { getGoogleMapsUrl, getWazeUrl } from '@/lib/api'
-import { dayTotals, lodgingForDate, tripStats } from '@/lib/domain/trip'
+import { lodgingForDate, tripStats } from '@/lib/domain/trip'
 import { daysInclusive, isIsoDate } from '@/lib/domain/dates'
+import { api, reportError } from '@/lib/client'
+import StatTile from '@/components/ui/StatTile'
+import DayRow from '@/components/trip/DayRow'
 import clsx from 'clsx'
 
 const TYPE_ICONS = { road_trip: Car, flight: Plane, train: Train, mixed: Layers }
@@ -38,34 +39,40 @@ export default function TripPage() {
   const [savingDates, setSavingDates] = useState(false)
   const [dateConfirm, setDateConfirm] = useState<{ add: number; remove: number } | null>(null)
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
-      const res = await fetch(`/api/trips/${tripId}`)
-      if (!res.ok) { router.push('/'); return }
-      const t = await res.json()
+      const t = await api<Trip>(`/api/trips/${tripId}`)
       setTrip(t)
       setNewStart(t.startDate)
       setNewEnd(t.endDate)
-    } catch { router.push('/') }
-    setLoading(false)
-  }
+    } catch (err) {
+      reportError(err, 'Could not load the trip')
+      router.push('/')
+    } finally {
+      setLoading(false)
+    }
+  }, [tripId, router])
 
-  useEffect(() => { load() }, [tripId])
+  useEffect(() => { load() }, [load])
 
   const handleMarkVisited = async (day: Day) => {
     if (!trip) return
-    await fetch(`/api/trips/${tripId}/days/${day.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...day, visited: !day.visited }),
-    })
-    load()
+    try {
+      await api(`/api/trips/${tripId}/days/${day.id}`, 'PUT', { ...day, visited: !day.visited })
+      load() // visited cities are recalculated on the server
+    } catch (err) {
+      reportError(err, 'Could not update the day')
+    }
   }
 
   const handleDelete = async () => {
     if (!confirm(`Delete "${trip?.name}"? This cannot be undone.`)) return
-    await fetch(`/api/trips/${tripId}`, { method: 'DELETE' })
-    router.push('/')
+    try {
+      await api(`/api/trips/${tripId}`, 'DELETE')
+      router.push('/')
+    } catch (err) {
+      reportError(err, 'Could not delete the trip')
+    }
   }
 
   const handleLodgingUpdate = (lodgings: Lodging[]) => {
@@ -81,7 +88,7 @@ export default function TripPage() {
 
   const checkDateChange = () => {
     if (!trip) return
-    if (!newStart || !newEnd || newEnd < newStart) { alert('The end date must be on or after the start date.'); return }
+    if (!isIsoDate(newStart) || !isIsoDate(newEnd) || newEnd < newStart) { reportError(null, 'The end date must be on or after the start date.'); return }
     const oldDays = trip.days.length
     const newDays = daysInclusive(newStart, newEnd)
     const diff = newDays - oldDays
@@ -94,14 +101,12 @@ export default function TripPage() {
     setSavingDates(true)
     try {
       // one server call: re-dates, adds or removes days in a single transaction
-      const res = await fetch(`/api/trips/${tripId}/dates`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ startDate: newStart, endDate: newEnd }),
-      })
-      if (!res.ok) { alert((await res.json().catch(() => null))?.error || 'Could not change the dates'); return }
+      await api(`/api/trips/${tripId}/dates`, 'PUT', { startDate: newStart, endDate: newEnd })
       setEditingDates(false)
       setDateConfirm(null)
       load()
+    } catch (err) {
+      reportError(err, 'Could not change the dates')
     } finally { setSavingDates(false) }
   }
 
@@ -248,10 +253,10 @@ export default function TripPage() {
                 </div>
               )}
               <div className="grid grid-cols-4 gap-3">
-                <MiniStat icon="🗺️" label="Miles" value={stats.totalMiles > 0 ? stats.totalMiles.toLocaleString() : '–'} />
-                <MiniStat icon="⏱️" label="Drive Time" value={stats.totalDrivingHours > 0 ? `${stats.totalDrivingHours}h` : '–'} />
-                <MiniStat icon="⛽" label="Fuel" value={stats.totalFuelCost > 0 ? `$${stats.totalFuelCost}` : '–'} />
-                <MiniStat icon="✅" label="Done" value={`${daysComplete}/${trip.days?.length || 0}`} />
+                <StatTile icon="🗺️" label="Miles" value={stats.totalMiles > 0 ? stats.totalMiles.toLocaleString() : '–'} />
+                <StatTile icon="⏱️" label="Drive Time" value={stats.totalDrivingHours > 0 ? `${stats.totalDrivingHours}h` : '–'} />
+                <StatTile icon="⛽" label="Fuel" value={stats.totalFuelCost > 0 ? `$${stats.totalFuelCost}` : '–'} />
+                <StatTile icon="✅" label="Done" value={`${daysComplete}/${trip.days?.length || 0}`} />
               </div>
 
               {/* Timeline */}
@@ -325,102 +330,6 @@ export default function TripPage() {
           </div>
         )}
       </div>
-    </div>
-  )
-}
-
-// ── Day Row with legs + stops ─────────────────────────────────────────────────
-function DayRow({ day, tripId, isRoadTrip, lodging, onToggleVisited }: {
-  day: Day; tripId: string; isRoadTrip: boolean; lodging?: Lodging; onToggleVisited: () => void
-}) {
-  const [expanded, setExpanded] = useState(false)
-  const { miles: totalDist, cost: totalCost } = dayTotals(day)
-  const hasLegs = (day.segments?.length ?? 0) > 0
-
-  return (
-    <div className={clsx('border rounded-xl overflow-hidden transition-all',
-      day.visited ? 'border-green-500/20 bg-green-500/3' : 'border-white/8 bg-white/3 hover:border-emerald-500/30')}>
-      <div className="flex items-stretch">
-        <div className={clsx('w-14 flex flex-col items-center justify-center py-3 border-r',
-          day.visited ? 'border-green-500/20 bg-green-500/5' : 'border-white/6 bg-white/4')}>
-          <div className="text-xs text-white/30 uppercase tracking-wide">Day</div>
-          <div className={clsx('text-xl font-bold', day.visited ? 'text-green-400' : 'text-emerald-500')}>{day.dayNumber}</div>
-        </div>
-        <Link href={`/trips/${tripId}/day/${day.id}`} className="flex-1 px-3 py-3 min-w-0">
-          <div className="text-xs text-white/30 mb-0.5">{format(parseISO(day.date), 'EEE, MMM d')}</div>
-          {day.startCity || day.endCity ? (
-            <div className="text-sm font-medium text-white flex items-center gap-1.5 truncate">
-              {day.startCity && <span>{day.startCity}</span>}
-              {day.startCity && day.endCity && day.startCity !== day.endCity && <ChevronRight className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
-              {day.endCity && day.endCity !== day.startCity && <span>{day.endCity}</span>}
-            </div>
-          ) : lodging ? (
-            <div className="text-sm text-white/60 flex items-center gap-1 truncate">
-              <Hotel className="w-3 h-3 text-blue-400 shrink-0" />{lodging.name}
-            </div>
-          ) : (
-            <div className="text-sm text-white/30 italic">No route yet</div>
-          )}
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
-            {hasLegs && (
-              <span className="text-xs text-white/30">
-                {day.segments!.map(s => TRANSPORT_ICONS[s.mode]).join(' ')} {day.segments!.length} leg{day.segments!.length !== 1 ? 's' : ''}
-              </span>
-            )}
-            {totalDist > 0 && isRoadTrip && <span className="text-xs text-white/30">· {Math.round(totalDist)}mi</span>}
-            {totalCost > 0 && <span className="text-xs text-green-400">· ${totalCost.toFixed(0)}</span>}
-          </div>
-        </Link>
-        <div className="flex flex-col items-center justify-center gap-1 pr-2">
-          {hasLegs && (
-            <button onClick={e => { e.preventDefault(); setExpanded(x => !x) }}
-              className="p-1 text-white/20 hover:text-white/50">
-              <ChevronDown className={clsx('w-3.5 h-3.5 transition-transform', expanded && 'rotate-180')} />
-            </button>
-          )}
-          <button onClick={e => { e.preventDefault(); onToggleVisited() }}
-            className="p-1 text-white/30 hover:text-green-400 transition-colors">
-            {day.visited ? <CheckCircle2 className="w-4 h-4 text-green-400" /> : <Circle className="w-4 h-4" />}
-          </button>
-        </div>
-      </div>
-
-      {/* Expanded legs + stops */}
-      {expanded && hasLegs && (
-        <div className="border-t border-white/6 px-4 py-3 space-y-2">
-          {day.segments!.map(seg => (
-            <div key={seg.id} className="text-xs">
-              <div className="flex items-center gap-1.5 text-white/60 font-medium">
-                <span>{TRANSPORT_ICONS[seg.mode]}</span>
-                <span>{seg.from?.city || seg.from?.name}</span>
-                <ChevronRight className="w-3 h-3 text-emerald-500/50" />
-                <span>{seg.to?.city || seg.to?.name}</span>
-                {!!seg.distance && <span className="text-white/30 ml-1">· {Math.round(seg.distance)}mi</span>}
-              </div>
-              {(seg.stops?.length ?? 0) > 0 && (
-                <div className="ml-5 mt-1 space-y-0.5">
-                  {seg.stops!.map(stop => (
-                    <div key={stop.id} className="flex items-center gap-1.5 text-white/30">
-                      <span className="text-[10px]">{stop.visited ? '✓' : '○'}</span>
-                      <span>{stop.name}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function MiniStat({ icon, label, value }: { icon: string; label: string; value: string }) {
-  return (
-    <div className="tp-card flex flex-col items-center gap-1 py-3">
-      <span className="text-base">{icon}</span>
-      <div className="text-sm font-semibold text-white">{value}</div>
-      <div className="text-[10px] text-white/30 uppercase tracking-wide">{label}</div>
     </div>
   )
 }

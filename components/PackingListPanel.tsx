@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Plus, Trash2, Check, Package, Loader2, Star, ChevronDown, ChevronUp, Search, Wand2 } from 'lucide-react'
 import { PackingItem, PackingCategory, PACKING_CATEGORY_ICONS, TripType } from '@/lib/types'
+import { api, reportError } from '@/lib/client'
 import clsx from 'clsx'
 
 interface Props {
@@ -82,58 +83,60 @@ export default function PackingListPanel({ tripId, tripType }: Props) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [filter, setFilter] = useState<'all' | 'packed' | 'unpacked' | 'essential'>('all')
 
-  const load = async () => {
-    try {
-      const res = await fetch(`/api/trips/${tripId}/packing`)
-      const data = await res.json()
-      setItems(data)
-    } catch { }
-    setLoading(false)
-  }
-
-  useEffect(() => { load() }, [tripId])
+  useEffect(() => {
+    let alive = true
+    api<PackingItem[]>(`/api/trips/${tripId}/packing`)
+      .then(data => alive && setItems(data))
+      .catch(err => alive && reportError(err, 'Could not load the packing list'))
+      .finally(() => alive && setLoading(false))
+    return () => { alive = false }
+  }, [tripId])
 
   const addItem = async () => {
     if (!newName.trim()) return
     setSaving(true)
     try {
-      const res = await fetch(`/api/trips/${tripId}/packing`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newName.trim(), category: newCategory, essential: newEssential, quantity: 1 }),
-      })
-      const item = await res.json()
+      const item = await api<PackingItem>(`/api/trips/${tripId}/packing`, 'POST',
+        { name: newName.trim(), category: newCategory, essential: newEssential, quantity: 1 })
       setItems(prev => [...prev, item])
       setNewName('')
       setNewEssential(false)
+    } catch (err) {
+      reportError(err, 'Could not add the item')
     } finally { setSaving(false) }
   }
 
+  // Optimistic: update the list right away, put it back if the server says no.
   const togglePacked = async (item: PackingItem) => {
     const updated = { ...item, packed: !item.packed }
     setItems(prev => prev.map(i => i.id === item.id ? updated : i))
-    await fetch(`/api/trips/${tripId}/packing/${item.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updated),
-    })
+    try {
+      await api(`/api/trips/${tripId}/packing/${item.id}`, 'PUT', updated)
+    } catch (err) {
+      setItems(prev => prev.map(i => i.id === item.id ? item : i))
+      reportError(err, 'Could not update the item')
+    }
   }
 
   const deleteItem = async (id: string) => {
+    const before = items
     setItems(prev => prev.filter(i => i.id !== id))
-    await fetch(`/api/trips/${tripId}/packing/${id}`, { method: 'DELETE' })
+    try {
+      await api(`/api/trips/${tripId}/packing/${id}`, 'DELETE')
+    } catch (err) {
+      setItems(before)
+      reportError(err, 'Could not delete the item')
+    }
   }
 
   const loadTemplate = async () => {
     const tpl = tripType && TEMPLATES[tripType] ? TEMPLATES[tripType] : TEMPLATES.default
     setSaving(true)
     try {
-      const res = await fetch(`/api/trips/${tripId}/packing`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(tpl.map(t => ({ ...t, packed: false, quantity: t.quantity || 1 }))),
-      })
-      setItems(await res.json())
+      setItems(await api<PackingItem[]>(`/api/trips/${tripId}/packing`, 'PUT',
+        tpl.map(t => ({ ...t, packed: false, quantity: t.quantity || 1 }))))
+    } catch (err) {
+      reportError(err, 'Could not load the template')
     } finally { setSaving(false) }
   }
 

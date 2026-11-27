@@ -8,26 +8,28 @@ import Navbar from '@/components/Navbar'
 import TripCard from '@/components/TripCard'
 import { Trip } from '@/lib/types'
 import { overallStats, tripStats } from '@/lib/domain/trip'
+import { api, reportError } from '@/lib/client'
 
 export default function HomePage() {
   const [trips, setTrips] = useState<Trip[]>([])
   const [loading, setLoading] = useState(true)
 
-  const load = async () => {
-    try {
-      const res = await fetch('/api/trips')
-      const data = await res.json()
-      setTrips(Array.isArray(data) ? data : [])
-    } catch { /* ignore */ }
-    setLoading(false)
-  }
-
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    let alive = true
+    api<Trip[]>('/api/trips')
+      .then(data => alive && setTrips(data))
+      .catch(err => alive && reportError(err, 'Could not load your trips'))
+      .finally(() => alive && setLoading(false))
+    return () => { alive = false }
+  }, [])
 
   const handleDelete = async (id: string) => {
-    const res = await fetch(`/api/trips/${id}`, { method: 'DELETE' })
-    if (!res.ok) { alert('Could not delete the trip'); return }
-    setTrips(prev => prev.filter(t => t.id !== id))
+    try {
+      await api(`/api/trips/${id}`, 'DELETE')
+      setTrips(prev => prev.filter(t => t.id !== id))
+    } catch (err) {
+      reportError(err, 'Could not delete the trip')
+    }
   }
 
   const totalStats = overallStats(trips)
