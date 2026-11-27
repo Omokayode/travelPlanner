@@ -92,6 +92,21 @@ export default function DayPage() {
     setEditingSegment(null)
   }
 
+  // Reorder legs (drag by the grip, or the up/down buttons)
+  const [dragArmed, setDragArmed] = useState<string | null>(null)
+  const [dropIndex, setDropIndex] = useState<number | null>(null)
+  const moveSegment = async (segId: string, to: number) => {
+    setDragArmed(null)
+    setDropIndex(null)
+    if (!day) return
+    const from = day.segments.findIndex(s => s.id === segId)
+    if (from < 0 || from === to) return
+    const segments = [...day.segments]
+    const [moved] = segments.splice(from, 1)
+    segments.splice(to, 0, moved)
+    await saveDay({ ...day, segments })
+  }
+
   const handleDeleteSegment = async (segId: string) => {
     if (!day) return
     const segments = day.segments.filter(s => s.id !== segId)
@@ -297,10 +312,22 @@ export default function DayPage() {
                 </div>
               )}
 
-              {day.segments?.map(seg => (
+              {day.segments?.map((seg, i) => (
+                <div key={seg.id}
+                  draggable={dragArmed === seg.id}
+                  onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', seg.id) }}
+                  onDragOver={e => { if (dragArmed) { e.preventDefault(); setDropIndex(i) } }}
+                  onDrop={e => { e.preventDefault(); if (dragArmed) moveSegment(dragArmed, i) }}
+                  onDragEnd={() => { setDragArmed(null); setDropIndex(null) }}
+                  onMouseUp={() => setDragArmed(null)}
+                  className={clsx('rounded-xl transition-shadow', dropIndex === i && dragArmed !== seg.id && 'ring-2 ring-emerald-500/50')}>
                 <SegmentCard
-                  key={seg.id}
                   segment={seg}
+                  move={day.segments.length > 1 ? {
+                    up: i > 0 ? () => moveSegment(seg.id, i - 1) : undefined,
+                    down: i < day.segments.length - 1 ? () => moveSegment(seg.id, i + 1) : undefined,
+                  } : undefined}
+                  onGrip={() => setDragArmed(seg.id)}
                   isRoadTrip={isRoadTrip}
                   expanded={expandedSegId === seg.id}
                   onToggle={() => setExpandedSegId(expandedSegId === seg.id ? null : seg.id)}
@@ -311,6 +338,7 @@ export default function DayPage() {
                   vehicle={trip.vehicle}
                   onShowConfirmation={() => setShowConfirmation(seg.confirmationText || null)}
                 />
+                </div>
               ))}
 
               {(addingSegment || editingSegment) && (

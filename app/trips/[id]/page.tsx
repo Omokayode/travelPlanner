@@ -15,10 +15,11 @@ import BudgetPanel from '@/components/BudgetPanel'
 import LodgingPanel from '@/components/LodgingPanel'
 import ImmichPanel from '@/components/ImmichPanel'
 import TripTimeline from '@/components/TripTimeline'
+import QuickAdd from '@/components/QuickAdd'
 import { Trip, Day, Lodging } from '@/lib/types'
 import { getGoogleMapsUrl, getWazeUrl } from '@/lib/api'
 import { lodgingForDate, tripStats } from '@/lib/domain/trip'
-import { daysInclusive, isIsoDate } from '@/lib/domain/dates'
+import { daysInclusive, isIsoDate, todayLocal } from '@/lib/domain/dates'
 import { api, reportError } from '@/lib/client'
 import StatTile from '@/components/ui/StatTile'
 import DayRow from '@/components/trip/DayRow'
@@ -145,6 +146,7 @@ export default function TripPage() {
   const lastDay = trip.days?.[trip.days.length - 1]
   const lastSeg = lastDay?.segments?.[lastDay.segments.length - 1]
   const daysComplete = trip.days?.filter(d => d.visited).length || 0
+  const todayDay = trip.days?.find(d => d.date === todayLocal())
   const isCompleted = daysComplete === (trip.days?.length || 0) && daysComplete > 0
 
   return (
@@ -350,6 +352,7 @@ export default function TripPage() {
           </div>
         )}
       </div>
+      {todayDay && <QuickAdd tripId={tripId} day={todayDay} onSaved={load} />}
     </div>
   )
 }

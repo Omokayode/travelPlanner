@@ -93,3 +93,15 @@ export function resizeDays(
   const result = [...kept, ...added].map((d, i) => ({ ...d, dayNumber: i + 1, date: addDays(start, i) }))
   return { days: result, added, removed }
 }
+
+export type TripStatus =
+  | { kind: 'upcoming'; inDays: number }
+  | { kind: 'ongoing'; day: number; of: number }
+  | { kind: 'past' }
+
+/** Where a trip stands relative to today (both "YYYY-MM-DD", local dates). */
+export function tripStatus(start: string, end: string, today: string): TripStatus {
+  if (today < start) return { kind: 'upcoming', inDays: daysInclusive(today, start) - 1 }
+  if (today > end) return { kind: 'past' }
+  return { kind: 'ongoing', day: daysInclusive(start, today), of: daysInclusive(start, end) }
+}

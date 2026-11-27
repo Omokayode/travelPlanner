@@ -1,8 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Loader2, Camera, Settings as SettingsIcon, ImageOff } from 'lucide-react'
+import { Loader2, Camera, Settings as SettingsIcon, ImageOff, Image as ImageIcon } from 'lucide-react'
 import Lightbox from '@/components/ui/Lightbox'
+import { api, reportError, toast } from '@/lib/client'
 import Link from 'next/link'
 
 interface Album {
@@ -51,6 +52,14 @@ export default function ImmichPanel({ tripId, dayDate, startDate, endDate }: Pro
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [lightbox, setLightbox] = useState<number | null>(null)
+  const setCover = async (assetId: string) => {
+    try {
+      await api(`/api/trips/${tripId}/cover`, 'POST', { assetId })
+      toast.info('Cover photo updated')
+    } catch (err) {
+      reportError(err, 'Could not set the cover photo')
+    }
+  }
 
   useEffect(() => {
     fetch('/api/settings')
@@ -203,6 +212,11 @@ export default function ImmichPanel({ tripId, dayDate, startDate, endDate }: Pro
           alt: a.originalFileName,
           href: a.fullUrl,
           caption: [a.takenAt?.replace('T', ' ').slice(0, 16), a.city].filter(Boolean).join(' · '),
+          action: (
+            <button type="button" onClick={() => setCover(a.id)} className="inline-flex items-center gap-1 text-emerald-300 hover:text-emerald-200">
+              <ImageIcon className="w-3 h-3" /> Use as trip cover
+            </button>
+          ),
         }))}
         index={lightbox}
         onIndex={setLightbox}

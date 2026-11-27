@@ -13,6 +13,8 @@ export interface LightboxItem {
   caption?: React.ReactNode
   /** link to the full-size file */
   href?: string
+  /** extra button(s) under the photo, e.g. "Use as trip cover" */
+  action?: React.ReactNode
 }
 
 interface Props {
@@ -87,6 +89,7 @@ export default function Lightbox({ items, index, onIndex }: Props) {
               <ExternalLink className="w-3 h-3" /> Full size
             </a>
           )}
+          {item.action}
         </div>
       </div>
       {items.length > 1 && (

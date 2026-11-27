@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Day, Lodging, Segment, Trip } from '@/lib/types'
-import { buildDays, dayStops, dayTotals, lodgingForDate, overallStats, resizeDays, tripStats } from './trip'
+import { buildDays, dayStops, dayTotals, lodgingForDate, overallStats, resizeDays, tripStats, tripStatus } from './trip'
 import { haversineMiles, minDistanceToRoute } from './geo'
 
 const loc = (name: string) => ({ id: name, name, coords: { lat: 0, lng: 0 } })
@@ -86,5 +86,15 @@ describe('geo', () => {
     expect(Math.round(haversineMiles(chicago, milwaukee))).toBe(81)
     expect(haversineMiles(chicago, chicago)).toBe(0)
     expect(Math.round(minDistanceToRoute(milwaukee, [[41.8781, -87.6298], [43.0389, -87.9065]]))).toBe(0)
+  })
+})
+
+describe('tripStatus', () => {
+  it('counts down, then days on the road, then past', () => {
+    expect(tripStatus('2026-12-10', '2026-12-12', '2026-12-09')).toEqual({ kind: 'upcoming', inDays: 1 })
+    expect(tripStatus('2026-12-10', '2026-12-12', '2026-11-30')).toEqual({ kind: 'upcoming', inDays: 10 })
+    expect(tripStatus('2026-12-10', '2026-12-12', '2026-12-10')).toEqual({ kind: 'ongoing', day: 1, of: 3 })
+    expect(tripStatus('2026-12-10', '2026-12-12', '2026-12-12')).toEqual({ kind: 'ongoing', day: 3, of: 3 })
+    expect(tripStatus('2026-12-10', '2026-12-12', '2026-12-13')).toEqual({ kind: 'past' })
   })
 })
