@@ -8,48 +8,214 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Dates without a time ("2025-07-01") are Postgres DATE columns. Prisma hands them over as a
+// JS Date at midnight UTC; lib/server/store.ts converts them to and from "YYYY-MM-DD" strings,
+// so nothing else in the app sees a Date object.
+//
+// A place (from/to of a leg, a stop, a lodging, an activity) is stored as plain columns with a
+// prefix: <p>Name, <p>Address, <p>City, <p>State, <p>Country, <p>Lat, <p>Lng, <p>Id.
+
+enum TripType {
+  road_trip
+  flight
+  train
+  mixed
+}
+
+enum TransportMode {
+  drive
+  flight
+  train
+  bus
+  ferry
+  walk
+}
+
 model Trip {
-  id            String   @id @default(cuid())
-  name          String
-  description   String?
-  startDate     String
-  endDate       String
-  type          String
-  visitedCities String[]
-  coverPhotoUrl String?
-  totalBudget   Float?
-  tags          String[]
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  isActive      Boolean  @default(false)
-  vehicle         Json?
-  homeCoords      Json?
-  lodgings        Json?
-  proposedBudget  Json?
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  startDate      DateTime @db.Date
+  endDate        DateTime @db.Date
+  type           TripType
+  visitedCities  String[]
+  coverPhotoUrl  String?
+  totalBudget    Decimal? @db.Decimal(12, 2)
+  tags           String[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  isActive       Boolean  @default(false)
+  vehicle        Json?
+  homeCoords     Json?
+  proposedBudget Json?
+  /// Lodgings as stored before Phase 2 (now in Lodging). Kept until the move is verified; no longer written.
+  legacyLodgings Json?    @map("lodgings")
 
   days         Day[]
+  lodgings     Lodging[]
   packingItems PackingItem[]
   expenses     Expense[]
 }
 
 model AppSettings {
-  id            String  @id @default("singleton")
-  immichUrl     String?
-  immichApiKey  String?
-  immichAlbumId String?
-  gasPriceRegular   Float?
-  gasPricePremium   Float?
-  gasPriceDiesel    Float?
-  savedVehicles Json?
-  updatedAt     DateTime @updatedAt
+  id              String   @id @default("singleton")
+  immichUrl       String?
+  immichApiKey    String?
+  immichAlbumId   String?
+  gasPriceRegular Float?
+  gasPricePremium Float?
+  gasPriceDiesel  Float?
+  savedVehicles   Json?
+  updatedAt       DateTime @updatedAt
 }
 
 model Day {
-  id        String @id
-  tripId    String
-  date      String
-  dayNumber Int
-  data      Json
+  id         String   @id
+  tripId     String
+  date       DateTime @db.Date
+  dayNumber  Int
+  title      String?
+  notes      String?
+  startCity  String?
+  endCity    String?
+  visited    Boolean  @default(false)
+  /// The whole day as stored before Phase 2. Kept until the move is verified; no longer written.
+  legacyData Json?    @map("data")
+
+  trip       Trip       @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  segments   Segment[]
+  activities Activity[]
+  expenses   Expense[]
+
+  @@unique([tripId, dayNumber])
+  @@index([tripId])
+}
+
+/// One leg of a day: a drive, flight, train…
+model Segment {
+  id       String        @id
+  dayId    String
+  position Int
+  mode     TransportMode
+
+  fromName    String
+  fromAddress String?
+  fromCity    String?
+  fromState   String?
+  fromCountry String?
+  fromLat     Float
+  fromLng     Float
+  fromId      String?
+
+  toName    String
+  toAddress String?
+  toCity    String?
+  toState   String?
+  toCountry String?
+  toLat     Float
+  toLng     Float
+  toId      String?
+
+  distance         Float? // miles
+  duration         Float? // minutes
+  cost             Decimal? @db.Decimal(12, 2)
+  fuelCost         Decimal? @db.Decimal(12, 2)
+  fuelGallons      Float?
+  tollCost         Decimal? @db.Decimal(12, 2)
+  bookingRef       String?
+  confirmationText String?
+  /// Local wall-clock time at the place, "YYYY-MM-DDTHH:mm" (no time zone), as typed.
+  departureTime    String?
+  arrivalTime      String?
+  carrier          String?
+  flightNumber     String?
+  notes            String?
+  /// [[lat, lng], …] of the drawn route
+  routeCoords      Json?
+
+  day   Day    @relation(fields: [dayId], references: [id], onDelete: Cascade)
+  stops Stop[]
+
+  @@index([dayId])
+}
+
+model Stop {
+  id              String  @id
+  segmentId       String
+  position        Int
+  type            String
+  name            String
+  description     String?
+  rating          Float?
+  duration        Int? // minutes planned
+  notes           String?
+  visited         Boolean @default(false)
+  isAutoSuggested Boolean @default(false)
+  osmId           String?
+
+  placeName    String
+  placeAddress String?
+  placeCity    String?
+  placeState   String?
+  placeCountry String?
+  placeLat     Float
+  placeLng     Float
+  placeId      String?
+
+  segment Segment @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+
+  @@index([segmentId])
+}
+
+model Activity {
+  id          String   @id
+  dayId       String
+  position    Int
+  name        String
+  type        String
+  time        String?
+  duration    Int?
+  cost        Decimal? @db.Decimal(12, 2)
+  notes       String?
+  website     String?
+  phone       String?
+  rating      Float?
+  visited     Boolean  @default(false)
+  isHighlight Boolean  @default(false)
+
+  placeName    String?
+  placeAddress String?
+  placeCity    String?
+  placeState   String?
+  placeCountry String?
+  placeLat     Float?
+  placeLng     Float?
+  placeId      String?
+
+  day Day @relation(fields: [dayId], references: [id], onDelete: Cascade)
+
+  @@index([dayId])
+}
+
+model Lodging {
+  id               String   @id
+  tripId           String
+  name             String
+  checkIn          DateTime @db.Date
+  checkOut         DateTime @db.Date
+  confirmationText String?
+  notes            String?
+  cost             Decimal? @db.Decimal(12, 2)
+  bookingRef       String?
+
+  placeName    String
+  placeAddress String?
+  placeCity    String?
+  placeState   String?
+  placeCountry String?
+  placeLat     Float
+  placeLng     Float
+  placeId      String?
 
   trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
 
@@ -72,18 +238,23 @@ model PackingItem {
 }
 
 model Expense {
-  id            String  @id @default(cuid())
+  id            String   @id @default(cuid())
   tripId        String
   dayId         String?
   name          String
-  amount        Float
+  amount        Decimal  @db.Decimal(12, 2)
   category      String
-  date          String
+  date          DateTime @db.Date
   notes         String?
+  /// Receipt file name under RECEIPTS_DIR (uploads since Phase 2).
+  receiptFile   String?
+  /// Receipt as an inline data: URL (before Phase 2). Still served; replaced by a file when changed.
   receipt       String?
   paymentMethod String?
 
   trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  day  Day? @relation(fields: [dayId], references: [id], onDelete: SetNull)
 
   @@index([tripId])
+  @@index([dayId])
 }

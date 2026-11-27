@@ -41,7 +41,6 @@ export interface Stop {
   duration?: number // minutes planned
   notes?: string
   visited: boolean
-  photo?: string
   isAutoSuggested?: boolean
   osmId?: string
 }
@@ -67,7 +66,6 @@ export interface Segment {
   fuelGallons?: number
   tollCost?: number
   bookingRef?: string
-  confirmationEmail?: string
   confirmationText?: string
   stops: Stop[]
   routeCoords?: [number, number][] // [[lat, lng], ...]
@@ -94,17 +92,6 @@ export interface Activity {
   isHighlight?: boolean
 }
 
-export interface Photo {
-  id: string
-  dataUrl: string // base64
-  caption?: string
-  location?: GeoLocation
-  takenAt?: string
-  uploadedAt: string
-  segmentId?: string
-  activityId?: string
-}
-
 export interface Day {
   id: string
   date: string
@@ -112,14 +99,10 @@ export interface Day {
   title?: string
   segments: Segment[]
   activities: Activity[]
-  photos: Photo[]
   notes?: string
   startCity?: string
   endCity?: string
   visited: boolean
-  weather?: string
-  totalDistance?: number
-  totalCost?: number
 }
 
 export interface Lodging {

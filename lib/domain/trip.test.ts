@@ -6,7 +6,7 @@ import { haversineMiles, minDistanceToRoute } from './geo'
 const loc = (name: string) => ({ id: name, name, coords: { lat: 0, lng: 0 } })
 const seg = (p: Partial<Segment>): Segment => ({ id: 's', from: loc('a'), to: loc('b'), mode: 'drive', stops: [], ...p })
 const day = (p: Partial<Day>): Day => ({
-  id: 'd', date: '2025-07-01', dayNumber: 1, segments: [], activities: [], photos: [], visited: false, ...p,
+  id: 'd', date: '2025-07-01', dayNumber: 1, segments: [], activities: [], visited: false, ...p,
 })
 let n = 0
 const id = () => `id${++n}`

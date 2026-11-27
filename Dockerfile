@@ -30,7 +30,11 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY scripts/start.sh ./start.sh
 COPY scripts/hash-password.mjs ./scripts/hash-password.mjs
-RUN chmod +x ./start.sh && chown -R node:node /app
+RUN chmod +x ./start.sh && mkdir -p /app/data/receipts && chmod 700 /app/data/receipts && chown -R node:node /app
+
+# Expense receipts are files here — mount a volume on it so they survive a new container.
+ENV RECEIPTS_DIR=/app/data/receipts
+VOLUME ["/app/data/receipts"]
 
 USER node
 EXPOSE 3000

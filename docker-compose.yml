@@ -30,9 +30,12 @@ services:
       # Optional — otherwise set on the Settings page:
       # IMMICH_URL: http://immich_server:2283
       # IMMICH_API_KEY: your_immich_api_key
+    volumes:
+      - receipts:/app/data/receipts # expense receipts (files)
     depends_on:
       db:
         condition: service_healthy
 
 volumes:
   postgres_data:
+  receipts:

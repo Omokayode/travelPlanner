@@ -53,6 +53,44 @@ test('sign in, create a trip, see correct days, delete it', async ({ page }) => 
   await expect(page.getByText('Immich Photos')).toBeVisible()
 })
 
+test('expense with a receipt photo is stored as a file and shown', async ({ page }) => {
+  test.skip(!password, 'E2E_PASSWORD not set')
+  await page.goto('/login')
+  await page.getByLabel('Password').fill(password)
+  await page.getByRole('button', { name: 'Sign in' }).click()
+  await expect(page).toHaveURL(/\/$/)
+
+  const id = `e2e${Date.now()}`
+  const created = await page.request.post('/api/trips', {
+    data: { id, name: `E2E receipts ${id}`, startDate: '2026-12-01', endDate: '2026-12-01', type: 'road_trip',
+      days: [{ id: `${id}d1`, date: '2026-12-01', dayNumber: 1, segments: [], activities: [], visited: false }] },
+  })
+  expect(created.ok()).toBeTruthy()
+
+  await page.goto(`/trips/${id}`)
+  await page.getByRole('button', { name: /Budget/ }).click()
+  await page.getByRole('button', { name: /Actual/ }).click()
+  await page.getByRole('button', { name: /Add expense/ }).click()
+  await page.getByPlaceholder(/Description/).fill('Gas in Kenosha')
+  await page.getByPlaceholder('0.00').fill('41.5')
+  // 1×1 PNG
+  const png = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64')
+  await page.locator('input[type="file"]').setInputFiles({ name: 'r.png', mimeType: 'image/png', buffer: png })
+  await expect(page.getByAltText('Receipt')).toBeVisible()
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByText('Gas in Kenosha')).toBeVisible()
+
+  // stored as a file, served back from its own URL
+  const expenses = await (await page.request.get(`/api/trips/${id}/expenses`)).json()
+  expect(expenses[0].receipt).toBe(`/api/trips/${id}/expenses/${expenses[0].id}/receipt`)
+  const receipt = await page.request.get(expenses[0].receipt)
+  expect(receipt.headers()['content-type']).toBe('image/png')
+  expect(Buffer.compare(await receipt.body(), png)).toBe(0)
+
+  expect((await page.request.delete(`/api/trips/${id}`)).ok()).toBeTruthy()
+})
+
 test('API refuses requests without a session', async ({ request }) => {
   const res = await request.get('/api/trips', { headers: { cookie: '' } })
   expect(res.status()).toBe(401)

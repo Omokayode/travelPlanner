@@ -9,7 +9,7 @@ export class HttpError extends Error {
   }
 }
 
-const MAX_BODY_BYTES = 6 * 1024 * 1024 // receipts are still stored inline (up to ~5 MB)
+const MAX_BODY_BYTES = 6 * 1024 * 1024 // a receipt upload arrives as a data: URL (up to ~5.5 MB)
 
 /** Parse and validate a JSON body; throws HttpError(400) with a short reason. */
 export async function parseBody<S extends ZodTypeAny>(req: Request, schema: S): Promise<z.infer<S>> {
@@ -28,7 +28,10 @@ export async function parseBody<S extends ZodTypeAny>(req: Request, schema: S): 
   return r.data
 }
 
-/** Wrap a route handler: HttpError → its status, Prisma "not found" → 404, anything else → 500. */
+/**
+ * Wrap a route handler: HttpError → its status, Prisma "not found" → 404, duplicate id or day
+ * number → 409, anything else → 500.
+ */
 export function handler<A extends unknown[]>(fn: (...args: A) => Promise<Response>) {
   return async (...args: A): Promise<Response> => {
     try {
@@ -37,6 +40,9 @@ export function handler<A extends unknown[]>(fn: (...args: A) => Promise<Respons
       if (err instanceof HttpError) return NextResponse.json({ error: err.message }, { status: err.status })
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
         return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      }
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        return NextResponse.json({ error: 'Already exists (duplicate id or day number)' }, { status: 409 })
       }
       console.error(err)
       return NextResponse.json({ error: 'Something went wrong' }, { status: 500 })

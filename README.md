@@ -67,6 +67,8 @@ lib/
   osm.ts                           server-side OpenStreetMap access (cached, rate-limited)
   client.ts                        browser api() helper and error toasts
   schemas.ts, http.ts              request validation and API error handling
+  server/store.ts                  database rows <-> the trip/day shapes the pages use
+  server/receipts.ts               expense receipts as files (RECEIPTS_DIR)
   session.ts, password.ts          login
   immich.ts                        server-side Immich access
   config.ts                        app name, User-Agent
@@ -76,6 +78,22 @@ e2e/                               Playwright smoke test
 prisma/                            schema + migrations
 scripts/start.sh                   container entrypoint
 ```
+
+## Data
+
+A trip has days; a day has legs (`Segment`, ordered), each leg has `Stop`s; a day also has
+`Activity` rows. Lodgings, packing items and expenses belong to the trip. Dates without a time are
+Postgres `DATE` columns, money is `DECIMAL(12,2)`. The API still sends and accepts the nested
+shapes in `lib/types.ts`; `lib/server/store.ts` is the only code that knows about the tables, and
+a day is saved in one transaction.
+
+Expense receipts are files in `RECEIPTS_DIR` (`/app/data/receipts` in the image — mount a volume
+there, as `docker-compose.yml` does) and are served at
+`/api/trips/<trip>/expenses/<expense>/receipt`. Back that folder up along with the database.
+
+Before 1.5.0 each day was one JSON blob (`Day.data`) and lodgings were JSON on the trip. The
+1.5.0 migration copies them into the tables and leaves the old columns in place, unused, so the
+move can be checked; a later migration removes them.
 
 ## Login
 

@@ -342,7 +342,7 @@ export default function BudgetPanel({ tripId, trip, filterDayId }: Props) {
                 <div className="text-white/50 text-xs mb-2">Receipt photo</div>
                 {form.receipt ? (
                   <div className="relative inline-block">
-                    {/* eslint-disable-next-line @next/next/no-img-element -- inline data: URL, nothing to optimise */}
+                    {/* eslint-disable-next-line @next/next/no-img-element -- new upload (data: URL) or the stored receipt's URL */}
                     <img src={form.receipt} alt="Receipt" className="h-28 rounded-xl object-cover border border-white/10" />
                     <button onClick={() => setForm(f => ({ ...f, receipt: null }))}
                       className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 flex items-center justify-center">
@@ -443,7 +443,7 @@ export default function BudgetPanel({ tripId, trip, filterDayId }: Props) {
       {viewReceipt && (
         <div className="fixed inset-0 bg-black/90 z-[1000] flex items-center justify-center p-4"
           onClick={() => setViewReceipt(null)}>
-          {/* eslint-disable-next-line @next/next/no-img-element -- inline data: URL, nothing to optimise */}
+          {/* eslint-disable-next-line @next/next/no-img-element -- new upload (data: URL) or the stored receipt's URL */}
           <img src={viewReceipt} alt="Receipt" className="max-w-full max-h-full rounded-xl" />
           <button className="absolute top-4 right-4 text-white/60 hover:text-white">
             <X className="w-8 h-8" />

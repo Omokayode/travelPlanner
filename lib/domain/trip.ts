@@ -66,7 +66,7 @@ export function lodgingForDate(lodgings: Lodging[] | undefined | null, date: str
 }
 
 export function newDay(id: string, date: string, dayNumber: number): Day {
-  return { id, date, dayNumber, segments: [], activities: [], photos: [], visited: false }
+  return { id, date, dayNumber, segments: [], activities: [], visited: false }
 }
 
 /** One Day per date from start to end; ids from makeId (uuid in the app). */
