@@ -35,6 +35,13 @@ test('plan by cities: route → days with places → trip', async ({ page }) => 
   await expect(page.getByText('Day in Chicago')).toBeVisible()
   await expect(page.getByText('Chicago → Milwaukee')).toBeVisible()
 
+  // where to stay: a few Chicago hotels with booking links; pick the first
+  await expect(page.getByRole('heading', { name: 'Where to stay' })).toBeVisible()
+  const firstHotel = page.getByRole('radio', { name: /^Stay at / }).first()
+  await expect(firstHotel).toBeVisible()
+  await expect(page.getByRole('link', { name: /Check prices/ }).first()).toHaveAttribute('href', /checkin=2026-12-18.*checkout=2026-12-20|checkout=2026-12-20.*checkin=2026-12-18/)
+  await firstHotel.check()
+
   await page.getByRole('button', { name: 'Create trip' }).click()
   await expect(page).toHaveURL(/\/trips\/[^/#]+$/, { timeout: 120_000 })
   await expect(page.getByRole('heading', { name: 'Friday, December 18th' })).toBeVisible()
@@ -45,5 +52,21 @@ test('plan by cities: route → days with places → trip', async ({ page }) => 
   expect(trip.days[0].places[1].name).toMatch(/Chicago/)
   expect(trip.days[0].places[1].travel.distance).toBeGreaterThan(60)
   expect(trip.days[2].places.at(-1).name).toMatch(/Milwaukee/)
+  // the chosen hotel became the lodging for both Chicago nights
+  expect(trip.lodgings).toHaveLength(1)
+  expect([trip.lodgings[0].checkIn, trip.lodgings[0].checkOut]).toEqual(['2026-12-18', '2026-12-20'])
+
+  // open the day in Google / Apple Maps
+  await expect(page.getByRole('link', { name: /^Google Maps/ }).first()).toHaveAttribute('href', /google\.com\/maps\/dir\/\?api=1/)
+  await expect(page.getByRole('link', { name: 'Apple Maps' }).first()).toHaveAttribute('href', /maps\.apple\.com\/\?.*daddr=/)
+
+  // switch the map style (desktop has the side map) and the tiles change
+  await page.getByRole('button', { name: 'Map style' }).click()
+  await page.getByRole('option', { name: 'Satellite' }).click()
+  await expect(page.locator('.leaflet-tile-pane img').first()).toHaveAttribute('src', /arcgisonline/, { timeout: 15_000 })
+  await page.reload()
+  await expect(page.locator('.leaflet-tile-pane img').first()).toHaveAttribute('src', /arcgisonline/, { timeout: 15_000 })
+  await page.getByRole('button', { name: 'Map style' }).click()
+  await page.getByRole('option', { name: /^Auto/ }).click()
   await page.request.delete(`/api/trips/${tripId}`)
 })

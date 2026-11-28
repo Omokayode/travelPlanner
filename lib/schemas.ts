@@ -60,6 +60,7 @@ export const travelSchema = z.object({
   fuelCost: optMoney,
   fuelGallons: optNum(0, 100_000),
   tollCost: optMoney,
+  tollSource: z.enum(['google', 'estimate']).nullish().transform((v) => v ?? undefined),
   cost: optMoney,
   carrier: optText(200),
   flightNumber: optText(40),
@@ -142,6 +143,7 @@ export const tripCreateSchema = z.object({
   id: idSchema,
   ...tripFields,
   days: z.array(daySchema.extend({ id: idSchema })).max(400).optional(),
+  lodgings: z.array(lodgingSchema).max(500).optional(),
 })
 
 export const tripUpdateSchema = z

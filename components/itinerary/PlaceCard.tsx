@@ -6,6 +6,7 @@ import clsx from 'clsx'
 import type { Place } from '@/lib/types'
 import { PLACE_ICONS, PLACE_LABELS } from '@/lib/types'
 import { formatMinutes } from '@/lib/format'
+import { applePlace, googlePlace } from '@/lib/domain/mapLinks'
 
 interface Props {
   place: Place
@@ -33,6 +34,7 @@ export default function PlaceCard({ place, index, color, active, readOnly, onSel
   const where = [place.location.city && place.location.city !== place.name ? place.location.city : null, place.location.state]
     .filter(Boolean)
     .join(', ')
+  const stop = { name: place.name, coords: place.location.coords }
   const actions = (className: string) =>
     readOnly ? null : (
       <div className={clsx('items-center sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity', className)}>
@@ -110,6 +112,13 @@ export default function PlaceCard({ place, index, color, active, readOnly, onSel
             {place.cost ? <span className="text-ok">· ${place.cost.toFixed(2)}</span> : null}
           </div>
           {place.notes && <p className="text-sm text-ink-2 mt-1.5 line-clamp-3 whitespace-pre-line">{place.notes}</p>}
+        </div>
+        <div className="flex gap-3 mt-1.5 text-xs text-ink-4">
+          <a href={googlePlace(stop)} target="_blank" rel="noopener noreferrer" className="hover:text-accent" aria-label={`${place.name} in Google Maps`}>Google Maps</a>
+          <a href={applePlace(stop)} target="_blank" rel="noopener noreferrer" className="hover:text-accent" aria-label={`${place.name} in Apple Maps`}>Apple Maps</a>
+          {place.website && /^https?:\/\//i.test(place.website) && (
+            <a href={place.website} target="_blank" rel="noopener noreferrer" className="hover:text-accent">Website</a>
+          )}
         </div>
         {actions('flex sm:hidden -ml-1 mt-1')}
         </div>

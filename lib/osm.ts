@@ -105,7 +105,7 @@ export async function drivingRoute(points: Coordinates[]): Promise<RouteResult |
 }
 
 // ── Overpass ───────────────────────────────────────────────────────────────────
-export async function overpass(query: string, ttlMs = 3600_000): Promise<OverpassElement[]> {
+export async function overpass(query: string, ttlMs = 3600_000, timeoutMs = 12_000): Promise<OverpassElement[]> {
   return cached(`overpass:${query}`, ttlMs, async () => {
     let last: unknown
     for (const url of OSM_ENDPOINTS.overpass) {
@@ -115,11 +115,12 @@ export async function overpass(query: string, ttlMs = 3600_000): Promise<Overpas
           body: query,
           headers: { 'Content-Type': 'text/plain', 'User-Agent': USER_AGENT, Accept: 'application/json' },
           cache: 'no-store',
-          signal: AbortSignal.timeout(12_000),
+          signal: AbortSignal.timeout(timeoutMs),
         })
         if (!res.ok) throw new Error(`Overpass ${res.status}`)
         const data = (await res.json()) as { elements?: OverpassElement[]; remark?: string }
-        if (!data.elements?.length && data.remark?.includes('timed out')) throw new Error('Overpass timed out')
+        // a "remark" means the server stopped part-way (timeout, out of memory): the answer is incomplete
+        if (data.remark && /error|timed out|out of memory/i.test(data.remark)) throw new Error(`Overpass: ${data.remark.slice(0, 120)}`)
         return data.elements || []
       } catch (err) {
         last = err // try the next server
@@ -140,52 +141,50 @@ export interface Attraction {
   known: boolean
 }
 
-function category(tags: Record<string, string>): Attraction['category'] {
-  if (tags.boundary === 'national_park') return 'national_park'
-  if (tags.leisure === 'nature_reserve' || tags.highway === 'trailhead') return 'park'
-  if (tags.tourism === 'museum') return 'museum'
-  if (tags.tourism === 'viewpoint') return 'viewpoint'
-  if (tags.historic) return 'historical'
-  if (tags.leisure === 'park') return 'park'
-  if (tags.amenity === 'cafe') return 'coffee'
-  if (tags.amenity === 'restaurant') return 'food'
-  return 'attraction'
-}
-
-/** Places to eat and a few more sights from OpenStreetMap (light query; best effort). */
+/** Cached OpenStreetMap places (lib/server/poiCache.ts), balanced over kinds, best first. */
 async function osmNearby(at: Coordinates, radiusM: number, city?: string): Promise<Attraction[]> {
-  const { lat, lng } = at
-  const r = Math.round(Math.min(radiusM, 5000))
-  const q = `[out:json][timeout:15];
-(
-  nwr["tourism"~"^(attraction|museum|viewpoint|gallery|zoo)$"]["name"]["wikidata"](around:${r},${lat},${lng});
-  node["amenity"~"^(restaurant|cafe)$"]["name"]["cuisine"](around:1500,${lat},${lng});
-);
-out center 60;`
-  const elements = await overpass(q)
-  return elements
-    .map((el) => ({ el, lat: el.lat ?? el.center?.lat, lon: el.lon ?? el.center?.lon }))
-    .filter((x) => x.lat != null && x.lon != null && x.el.tags?.name)
-    .map(({ el, lat, lon }) => ({
-      name: el.tags.name,
-      category: category(el.tags),
-      osmId: String(el.id),
-      location: {
-        id: `osm_${el.id}`,
-        name: el.tags.name,
-        coords: { lat: lat as number, lng: lon as number },
-        city: el.tags['addr:city'] || city,
-        address: [el.tags['addr:housenumber'], el.tags['addr:street']].filter(Boolean).join(' ') || undefined,
-      },
-      website: el.tags.website,
-      notes: el.tags.description || (el.tags.cuisine ? el.tags.cuisine.replace(/;/g, ', ') : undefined),
-      known: !!el.tags.wikidata,
-    }))
+  const { poisNear } = await import('@/lib/server/poiCache')
+  const pois = await poisNear(at, radiusM)
+  const foodMiles = 3 // eat near where you are, not across the metro
+  const meal = (c: string) => c === 'food' || c === 'coffee' || c === 'nightlife'
+  // well known first; for meals, local places before chains (a brand tag marks a chain)
+  const score = (p: (typeof pois)[number]) =>
+    (p.tags.wikidata ? 2 : 0) + (p.tags.website ? 1 : 0) + (p.tags.cuisine ? 0.5 : 0) - (meal(p.category) && p.tags.brand ? 3 : 0)
+  const byKind = new Map<string, typeof pois>()
+  for (const p of pois) {
+    if (p.category === 'lodging') continue
+    if (meal(p.category) && p.miles > foodMiles) continue
+    const list = byKind.get(p.category) ?? []
+    list.push(p)
+    byKind.set(p.category, list)
+  }
+  const out: Attraction[] = []
+  for (const list of Array.from(byKind.values())) {
+    list.sort((a, b) => score(b) - score(a) || a.miles - b.miles)
+    for (const p of list.slice(0, 25)) {
+      out.push({
+        name: p.name,
+        category: p.category,
+        osmId: p.id,
+        location: {
+          id: `osm_${p.id}`,
+          name: p.name,
+          coords: p.coords,
+          city: p.tags['addr:city'] || city,
+          address: [p.tags['addr:housenumber'], p.tags['addr:street']].filter(Boolean).join(' ') || undefined,
+        },
+        website: p.tags.website,
+        notes: p.tags.description || (p.tags.cuisine ? p.tags.cuisine.replace(/;/g, ', ').replace(/_/g, ' ') : undefined),
+        known: !!p.tags.wikidata,
+      })
+    }
+  }
+  return out
 }
 
 /**
  * Things to see and places to eat around a point: notable places from Wikipedia (best known
- * first), then OpenStreetMap restaurants/cafés and anything Wikipedia missed. Either source may
+ * first), then OpenStreetMap places from our cache (restaurants, cafés, parks… anything Wikipedia missed). Either source may
  * be down; only when both are does this fail.
  */
 export async function nearbyPlaces(at: Coordinates, limit = 12, city?: string, radiusM = 15000, interests: Interest[] = ['sights', 'museums', 'nature', 'history']): Promise<Attraction[]> {

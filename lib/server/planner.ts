@@ -7,6 +7,9 @@ import { addDays } from '@/lib/domain/dates'
 import { haversineMiles } from '@/lib/domain/geo'
 import { cityText, layoutDays, orderByDistance, pickForDays, rankCandidates, type PlanCity, type TripOutline } from '@/lib/domain/plan'
 import { nearbyPlaces, searchPlaces, type Attraction } from '@/lib/osm'
+import { bookingUrl, matchRating, type Hotel } from '@/lib/domain/google'
+import { googleRatings } from '@/lib/server/google'
+import { hotelsNear } from '@/lib/server/hotels'
 
 export interface DraftDay {
   dayNumber: number
@@ -14,12 +17,22 @@ export interface DraftDay {
   title: string
   places: Place[]
 }
+/** A city you sleep in, with a few hotels to choose from. */
+export interface DraftStay {
+  city: string
+  state?: string
+  checkIn: string
+  checkOut: string
+  hotels: (Hotel & { bookingUrl: string })[]
+}
+
 export interface Draft {
   name: string
   type: TripType
   startDate: string
   endDate: string
   days: DraftDay[]
+  stays: DraftStay[]
   /** things the user should know (city not found, no places found…) */
   notes: string[]
 }
@@ -92,6 +105,18 @@ export async function buildDraft(outline: TripOutline, startDate: string, progre
       notes.push(`Could not look up places in ${city.name} (map service busy) — add some yourself.`)
     }
     if (found.length) {
+      // with Google set up: well-rated places count as well known, poorly rated ones don't
+      // (ratings are only used here, never stored)
+      const rated = await googleRatings(city.coords!, 15000)
+      if (rated.length) {
+        found = found.map((a) => {
+          const m = matchRating(a.name, a.location.coords, rated)
+          if (!m?.rating) return a
+          if (m.rating >= 4.3 && (m.reviews ?? 0) >= 200) return { ...a, known: true }
+          if (m.rating < 3.8) return { ...a, known: false }
+          return a
+        })
+      }
       const ranked = rankCandidates(found.map((a) => ({ ...a, coords: a.location.coords })), o.interests)
       pickForDays(ranked, days.map((d) => d.slots)).forEach((list, i) => picks.set(days[i].dayNumber, list))
     } else if (!notes.some((n) => n.includes(city.name))) {
@@ -114,12 +139,46 @@ export async function buildDraft(outline: TripOutline, startDate: string, progre
     return { dayNumber: d.dayNumber, date: addDays(startDate, d.dayNumber - 1), title: d.title, places }
   })
 
+  // 5. hotels: for each city you sleep in, near the places picked for it
+  const draftStays: DraftStay[] = []
+  let night = 0
+  for (const s of o.stays) {
+    const nights = Math.max(1, Math.round(s.nights))
+    const checkIn = addDays(startDate, night)
+    const checkOut = addDays(startDate, night + nights)
+    night += nights
+    progress(`Looking for hotels in ${s.city.name}…`)
+    const picked = Array.from(picks.entries())
+      .filter(([dayNumber]) => {
+        const d = layout.find((x) => x.dayNumber === dayNumber)
+        return d && key(d.city) === key(s.city)
+      })
+      .flatMap(([, list]) => list.map((a) => a.location.coords))
+    const centre = picked.length
+      ? { lat: picked.reduce((n, c) => n + c.lat, 0) / picked.length, lng: picked.reduce((n, c) => n + c.lng, 0) / picked.length }
+      : s.city.coords!
+    let hotels: Hotel[] = []
+    try {
+      hotels = await hotelsNear(centre, 4, s.city.coords!)
+    } catch {
+      notes.push(`Could not look up hotels in ${s.city.name} right now.`)
+    }
+    draftStays.push({
+      city: s.city.name,
+      state: s.city.state,
+      checkIn,
+      checkOut,
+      hotels: hotels.map((h) => ({ ...h, bookingUrl: bookingUrl(h.name, cityText(s.city), checkIn, checkOut) })),
+    })
+  }
+
   return {
     name: o.name,
     type: between === 'drive' ? 'road_trip' : between === 'flight' ? 'flight' : 'train',
     startDate,
     endDate: addDays(startDate, layout.length - 1),
     days,
+    stays: draftStays,
     notes,
   }
 }

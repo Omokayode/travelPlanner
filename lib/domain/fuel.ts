@@ -12,7 +12,7 @@ export const DEFAULT_FUEL_PRICES: Record<FuelType, number> = {
 /** Used when a trip has no vehicle. */
 export const DEFAULT_MPG = 28
 
-/** Rough toll estimate per mile; real tolls need a paid API (TollGuru, HERE). */
+/** Rough toll estimate per mile, used when Google's Routes API is not set up or has no price. */
 export const TOLL_PER_MILE = 0.04
 
 /** The gas-price fields saved on the Settings page. */
@@ -65,9 +65,11 @@ export function driveCosts(
   distanceMiles: number,
   vehicle: Pick<Vehicle, 'fuelEfficiency' | 'fuelType'> | undefined | null,
   pricePerGallon: number,
+  /** a real toll price (e.g. from Google); undefined/null = estimate it */
+  knownToll?: number | null,
 ): DriveCosts {
   const mpg = vehicle?.fuelEfficiency && vehicle.fuelEfficiency > 0 ? vehicle.fuelEfficiency : DEFAULT_MPG
   const { gallons, cost } = calculateFuelCost(distanceMiles, mpg, pricePerGallon)
-  const tollCost = estimateTolls(distanceMiles)
+  const tollCost = knownToll != null ? round2(knownToll) : estimateTolls(distanceMiles)
   return { fuelGallons: gallons, fuelCost: cost, tollCost, cost: round2(cost + tollCost) }
 }

@@ -4,19 +4,12 @@
 import { Bus, Car, Footprints, Loader2, Navigation, Pencil, Plane, Ship, Train, Signpost } from 'lucide-react'
 import type { Place, TransportMode } from '@/lib/types'
 import { formatMiles, formatMinutes } from '@/lib/format'
+import { googleDirections } from '@/lib/domain/mapLinks'
 
 export const MODE_ICON: Record<TransportMode, typeof Car> = { drive: Car, walk: Footprints, flight: Plane, train: Train, bus: Bus, ferry: Ship }
 export const MODE_LABEL: Record<TransportMode, string> = { drive: 'Drive', walk: 'Walk', flight: 'Flight', train: 'Train', bus: 'Bus', ferry: 'Ferry' }
-const GOOGLE_MODE: Partial<Record<TransportMode, string>> = { drive: 'driving', walk: 'walking', train: 'transit', bus: 'transit', ferry: 'transit' }
-
 export function directionsUrl(from: Place, to: Place) {
-  const q = new URLSearchParams({
-    api: '1',
-    origin: `${from.location.coords.lat},${from.location.coords.lng}`,
-    destination: `${to.location.coords.lat},${to.location.coords.lng}`,
-    travelmode: GOOGLE_MODE[to.travel?.mode || 'drive'] || 'driving',
-  })
-  return `https://www.google.com/maps/dir/?${q}`
+  return googleDirections([from, to].map((p) => ({ name: p.name, coords: p.location.coords })), to.travel?.mode || 'drive').url
 }
 
 interface Props {
@@ -42,6 +35,11 @@ export default function TravelRow({ from, to, pending, readOnly, onEdit, onFindS
           {pending ? 'Working out the route…' : parts.join(' · ') || MODE_LABEL[mode]}
           {t?.mode === 'flight' && (t.carrier || t.flightNumber) && ` · ${[t.carrier, t.flightNumber].filter(Boolean).join(' ')}`}
           {t?.cost ? <span className="text-ok"> · ${t.cost.toFixed(2)}</span> : null}
+          {t?.mode === 'drive' && (t.tollCost ?? 0) > 0 && (t.tollSource === 'google' || (t.tollCost ?? 0) >= 1) && (
+            <span title={t.tollSource === 'google' ? 'Toll price from Google' : 'Estimated from distance (add a Google key in Settings for real tolls)'}>
+              {' '}(tolls ${t.tollCost!.toFixed(2)}{t.tollSource === 'google' ? '' : ' est.'})
+            </span>
+          )}
         </span>
       </span>
       <span className="flex items-center gap-3 sm:gap-2 ml-auto shrink-0">

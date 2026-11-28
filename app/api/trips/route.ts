@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client'
 import prisma from '@/lib/db'
 import { handler, parseBody } from '@/lib/http'
 import { tripCreateSchema } from '@/lib/schemas'
-import { dayFields, dbDate, replaceDayPlaces, toTrip, tripInclude } from '@/lib/server/store'
+import { dayFields, dbDate, replaceDayPlaces, replaceLodgings, toTrip, tripInclude } from '@/lib/server/store'
 import { planTravel, type PlannedPlace } from '@/lib/server/travel'
 import type { Vehicle } from '@/lib/types'
 
@@ -47,6 +47,7 @@ export const POST = handler(async (req: NextRequest) => {
       await tx.day.create({ data: { id: days[i].id, tripId: body.id, ...dayFields(days[i]) } })
       await replaceDayPlaces(tx, days[i].id, planned[i])
     }
+    if (body.lodgings?.length) await replaceLodgings(tx, body.id, body.lodgings)
     return tx.trip.findUniqueOrThrow({ where: { id: body.id }, include: tripInclude })
   })
   return NextResponse.json(toTrip(trip))

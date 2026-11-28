@@ -4,6 +4,9 @@ import { z } from 'zod'
 import prisma from '@/lib/db'
 import { handler, parseBody } from '@/lib/http'
 import { recomputeVisitedCities } from '@/lib/server/store'
+import { poiCacheSummary } from '@/lib/server/poiCache'
+import { MAP_STYLE_IDS } from '@/lib/mapStyles'
+import { TOLL_PASSES } from '@/lib/domain/google'
 
 export const dynamic = 'force-dynamic' // never pre-render or cache at build time
 
@@ -40,6 +43,17 @@ const settingsInput = z
     homeCity: z.string().trim().max(200).nullable().optional(),
     /** Ollama model for planning; null = server default */
     aiModel: z.string().trim().max(120).regex(/^[\w.:/-]*$/).nullable().optional(),
+    /** Google keys: only written when typed in ('' leaves the saved one alone) */
+    googleServerKey: z.string().trim().max(200).regex(/^[\w-]*$/, 'not a Google API key').optional(),
+    clearGoogleServerKey: z.boolean().optional(),
+    googleMapsKey: z.string().trim().max(200).regex(/^[\w-]*$/, 'not a Google API key').optional(),
+    clearGoogleMapsKey: z.boolean().optional(),
+    mapStyle: z.enum(MAP_STYLE_IDS).nullable().optional(),
+    tollPass: z
+      .string()
+      .refine((v) => v === '' || TOLL_PASSES.some((t) => t.id === v), 'unknown toll pass')
+      .nullable()
+      .optional(),
   })
   .strip()
 
@@ -50,10 +64,16 @@ async function load() {
 }
 
 /** What the browser sees: everything except the key itself. */
-function publicView(s: Stored) {
-  const { immichApiKey, ...rest } = s
+async function publicView(s: Stored) {
+  const { immichApiKey, googleServerKey, googleMapsKey, ...rest } = s
+  const serverSet = Boolean(googleServerKey || process.env.GOOGLE_SERVER_KEY)
+  const mapsSet = Boolean(googleMapsKey || process.env.GOOGLE_MAPS_KEY)
   return {
     ...rest,
+    googleServerKeySet: serverSet,
+    googleMapsKeySet: mapsSet,
+    googleMapsReady: serverSet && mapsSet,
+    poiCache: await poiCacheSummary().catch(() => null),
     immichKeySet: Boolean(immichApiKey),
     immichFromEnv: Boolean(process.env.IMMICH_URL && process.env.IMMICH_API_KEY),
     immichUrlFromEnv: Boolean(process.env.IMMICH_URL),
@@ -61,11 +81,16 @@ function publicView(s: Stored) {
   }
 }
 
-export const GET = handler(async () => NextResponse.json(publicView(await load())))
+export const GET = handler(async () => NextResponse.json(await publicView(await load())))
 
 export const PUT = handler(async (req: NextRequest) => {
-  const { immichApiKey, clearImmichApiKey, ...rest } = await parseBody(req, settingsInput)
+  const { immichApiKey, clearImmichApiKey, googleServerKey, clearGoogleServerKey, googleMapsKey, clearGoogleMapsKey, ...rest } = await parseBody(req, settingsInput)
   const data: Prisma.AppSettingsUpdateInput = { ...rest }
+  if (googleServerKey) data.googleServerKey = googleServerKey
+  if (clearGoogleServerKey) data.googleServerKey = null
+  if (googleMapsKey) data.googleMapsKey = googleMapsKey
+  if (clearGoogleMapsKey) data.googleMapsKey = null
+  if (data.tollPass === '') data.tollPass = null
   if (immichApiKey) data.immichApiKey = immichApiKey
   if (clearImmichApiKey) data.immichApiKey = null
   if (data.immichUrl === '') data.immichUrl = null
@@ -85,5 +110,5 @@ export const PUT = handler(async (req: NextRequest) => {
     }
     return s
   })
-  return NextResponse.json(publicView(saved))
+  return NextResponse.json(await publicView(saved))
 })

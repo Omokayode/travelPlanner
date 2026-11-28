@@ -7,7 +7,8 @@ lodging, a packing list, a budget with expenses, weather and photos from Immich.
 
 ## Features
 
-- Trips made of days, legs (drive, flight, train…) and stops; fuel and toll estimates; lodging,
+- Trips made of days, legs (drive, flight, train…) and stops; fuel and toll prices (real tolls
+  with a Google key); lodging with hotel suggestions,
   packing list, budget and expenses with receipt photos; weather; photos from Immich.
 - Dashboard with cover photos and trip status; a **world map** of every trip (`/map`) with places
   visited, states and countries; a day-by-day **timeline**.
@@ -130,6 +131,24 @@ override it. Places always come from Wikipedia (`nearcoord:` search per interest
 classified by each article's short description) and OpenStreetMap — never from the model, so they
 exist. Without `OLLAMA_URL`, “Plan by cities” works the same way minus the text box. Ollama has
 no login: keep it on a private network.
+
+## Maps, tolls, hotels and the place cache
+
+- **Map styles**: Streets, Light, Dark, Satellite and Terrain (Esri tiles, no key), OpenStreetMap,
+  and — with Google keys — Google roadmap/satellite/terrain. Each map has a "Map style" button
+  (remembered per device); Settings → Maps & Google sets the default. Every place and day has
+  **Open in Google Maps / Apple Maps** links (Google takes up to 10 stops; Apple only start → end).
+- **Google (optional)**, Settings → Maps & Google: a *server key* (Routes API, Places API (New),
+  Map Tiles API) gives real **toll prices** for drives over 10 miles (with your toll pass) and
+  **hotels with ratings**; a *browser key* (restrict it to your site + Map Tiles API) shows Google
+  map tiles. Without keys tolls are a per-mile estimate (marked "est.") and hotels come from
+  OpenStreetMap. Google content is never stored. Set daily quota caps in Google Cloud.
+- **Hotels**: the planner suggests a few per city you sleep in (pick one or decide later); the
+  Lodging tab has **Find hotels**. "Check prices" opens Booking.com with your dates.
+- **Place cache**: OpenStreetMap places (sights, food, hotels…) are fetched from Overpass once per
+  ~30 km area and kept 30 days in the `Poi` table. For regions you visit often, load a Geofabrik
+  extract instead (no rate limits): `scripts/poi-import.sh north-america/us/wisconsin`
+  (needs `pip install osmium`; run monthly to refresh).
 
 ## Login
 
