@@ -7,6 +7,7 @@ import type { Vehicle } from '@/lib/types'
 export interface PublicSettings extends GasPrices {
   savedVehicles?: Vehicle[] | null
   immichConfigured?: boolean
+  homeCity?: string | null
 }
 
 let cached: Promise<PublicSettings | null> | null = null

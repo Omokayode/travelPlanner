@@ -185,3 +185,22 @@ export const packingItemSchema = z.object({
 })
 
 export const packingListSchema = z.array(packingItemSchema).max(500)
+
+// ── trip planner (new-trip page) ─────────────────────────────────────────────
+const planCity = z.object({
+  name: text(120).trim().min(1),
+  state: optText(80),
+  country: optText(80),
+  coords: z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }).optional(),
+})
+
+export const outlineSchema = z.object({
+  name: text(120).trim().min(1),
+  start: planCity,
+  stays: z.array(z.object({ city: planCity, nights: z.number().int().min(1).max(30) })).min(1).max(20),
+  returnHome: z.boolean(),
+  startDate: dateSchema.optional(),
+  interests: z.array(z.enum(['sights', 'museums', 'history', 'food', 'coffee', 'nature', 'shopping', 'nightlife'])).max(8),
+  pace: z.enum(['relaxed', 'normal', 'packed']),
+  mode: z.enum(['drive', 'flight', 'train']),
+})

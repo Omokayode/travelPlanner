@@ -4,12 +4,18 @@
 // calls are spaced out to respect its usage policy (max 1 request/second).
 import 'server-only'
 import { USER_AGENT } from '@/lib/config'
-import type { Coordinates, GeoLocation, NominatimResult, OSRMRoute, OverpassElement } from '@/lib/types'
+import type { Coordinates, GeoLocation, NominatimResult, OSRMRoute, OverpassElement, PlaceCategory } from '@/lib/types'
+import { wikiNearby } from '@/lib/wiki'
+import { INTEREST_SEARCH, type Interest } from '@/lib/domain/plan'
 
 export const OSM_ENDPOINTS = {
   nominatim: process.env.NOMINATIM_URL || 'https://nominatim.openstreetmap.org',
   osrm: process.env.OSRM_URL || 'https://router.project-osrm.org',
-  overpass: process.env.OVERPASS_URL || 'https://overpass-api.de/api/interpreter',
+  // comma-separated; tried in order (the free public servers are often busy)
+  overpass: (process.env.OVERPASS_URL || 'https://overpass-api.de/api/interpreter,https://maps.mail.ru/osm/tools/overpass/api/interpreter')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean),
 }
 
 // ── tiny TTL cache (one container, so in-memory is enough) ──────────────────────
@@ -101,28 +107,42 @@ export async function drivingRoute(points: Coordinates[]): Promise<RouteResult |
 // ── Overpass ───────────────────────────────────────────────────────────────────
 export async function overpass(query: string, ttlMs = 3600_000): Promise<OverpassElement[]> {
   return cached(`overpass:${query}`, ttlMs, async () => {
-    const res = await fetch(OSM_ENDPOINTS.overpass, {
-      method: 'POST',
-      body: query,
-      headers: { 'Content-Type': 'text/plain', 'User-Agent': USER_AGENT, Accept: 'application/json' },
-      cache: 'no-store',
-    })
-    if (!res.ok) throw new Error(`Overpass ${res.status}`)
-    const data = (await res.json()) as { elements?: OverpassElement[] }
-    return data.elements || []
+    let last: unknown
+    for (const url of OSM_ENDPOINTS.overpass) {
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          body: query,
+          headers: { 'Content-Type': 'text/plain', 'User-Agent': USER_AGENT, Accept: 'application/json' },
+          cache: 'no-store',
+          signal: AbortSignal.timeout(12_000),
+        })
+        if (!res.ok) throw new Error(`Overpass ${res.status}`)
+        const data = (await res.json()) as { elements?: OverpassElement[]; remark?: string }
+        if (!data.elements?.length && data.remark?.includes('timed out')) throw new Error('Overpass timed out')
+        return data.elements || []
+      } catch (err) {
+        last = err // try the next server
+      }
+    }
+    throw last instanceof Error ? last : new Error('Overpass is not answering')
   })
 }
 
 export interface Attraction {
   name: string
-  category: 'attraction' | 'museum' | 'food' | 'coffee' | 'park' | 'viewpoint' | 'historical'
+  category: PlaceCategory
   location: GeoLocation
   website?: string
   notes?: string
   osmId: string
+  /** has a Wikidata entry (a well-known place) */
+  known: boolean
 }
 
 function category(tags: Record<string, string>): Attraction['category'] {
+  if (tags.boundary === 'national_park') return 'national_park'
+  if (tags.leisure === 'nature_reserve' || tags.highway === 'trailhead') return 'park'
   if (tags.tourism === 'museum') return 'museum'
   if (tags.tourism === 'viewpoint') return 'viewpoint'
   if (tags.historic) return 'historical'
@@ -132,31 +152,20 @@ function category(tags: Record<string, string>): Attraction['category'] {
   return 'attraction'
 }
 
-/** Sights, museums, parks and places to eat around a point (Overpass, cached for an hour). */
-export async function nearbyPlaces(at: Coordinates, limit = 12, city?: string): Promise<Attraction[]> {
+/** Places to eat and a few more sights from OpenStreetMap (light query; best effort). */
+async function osmNearby(at: Coordinates, radiusM: number, city?: string): Promise<Attraction[]> {
   const { lat, lng } = at
-  const q = `[out:json][timeout:25];
+  const r = Math.round(Math.min(radiusM, 5000))
+  const q = `[out:json][timeout:15];
 (
-  nwr["tourism"~"^(attraction|museum|viewpoint|gallery|zoo|theme_park)$"]["name"](around:6000,${lat},${lng});
-  nwr["historic"~"^(monument|memorial|castle|landmark)$"]["name"]["wikidata"](around:6000,${lat},${lng});
-  nwr["leisure"="park"]["name"]["wikidata"](around:6000,${lat},${lng});
+  nwr["tourism"~"^(attraction|museum|viewpoint|gallery|zoo)$"]["name"]["wikidata"](around:${r},${lat},${lng});
   node["amenity"~"^(restaurant|cafe)$"]["name"]["cuisine"](around:1500,${lat},${lng});
 );
-out center 80;`
+out center 60;`
   const elements = await overpass(q)
-  // well-known places (with a Wikidata entry) first, then the rest; no duplicates by name
-  const seen = new Set<string>()
   return elements
     .map((el) => ({ el, lat: el.lat ?? el.center?.lat, lon: el.lon ?? el.center?.lon }))
     .filter((x) => x.lat != null && x.lon != null && x.el.tags?.name)
-    .sort((a, b) => Number(!!b.el.tags.wikidata) - Number(!!a.el.tags.wikidata))
-    .filter((x) => {
-      const k = x.el.tags.name.toLowerCase()
-      if (seen.has(k)) return false
-      seen.add(k)
-      return true
-    })
-    .slice(0, limit)
     .map(({ el, lat, lon }) => ({
       name: el.tags.name,
       category: category(el.tags),
@@ -170,7 +179,44 @@ out center 80;`
       },
       website: el.tags.website,
       notes: el.tags.description || (el.tags.cuisine ? el.tags.cuisine.replace(/;/g, ', ') : undefined),
+      known: !!el.tags.wikidata,
     }))
+}
+
+/**
+ * Things to see and places to eat around a point: notable places from Wikipedia (best known
+ * first), then OpenStreetMap restaurants/cafés and anything Wikipedia missed. Either source may
+ * be down; only when both are does this fail.
+ */
+export async function nearbyPlaces(at: Coordinates, limit = 12, city?: string, radiusM = 15000, interests: Interest[] = ['sights', 'museums', 'nature', 'history']): Promise<Attraction[]> {
+  const searches = interests.map((i) => INTEREST_SEARCH[i]).filter((s): s is string => !!s)
+  const [wiki, osm] = await Promise.allSettled([wikiNearby(at, radiusM, searches), osmNearby(at, radiusM, city)])
+  if (wiki.status === 'rejected' && osm.status === 'rejected') throw new Error('Place lookup is unavailable right now')
+  const out: Attraction[] = []
+  const seen = new Set<string>()
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+  if (wiki.status === 'fulfilled') {
+    for (const w of wiki.value) {
+      seen.add(norm(w.name))
+      out.push({
+        name: w.name,
+        category: w.category as Attraction['category'],
+        osmId: `wiki_${w.pageId}`,
+        location: { id: `wiki_${w.pageId}`, name: w.name, coords: w.coords, city },
+        website: w.url,
+        notes: w.description || undefined,
+        known: true,
+      })
+    }
+  }
+  if (osm.status === 'fulfilled') {
+    for (const o of osm.value) {
+      if (seen.has(norm(o.name))) continue
+      seen.add(norm(o.name))
+      out.push(o)
+    }
+  }
+  return out.slice(0, limit)
 }
 
 /** Same, around a city looked up by name. */

@@ -24,6 +24,7 @@ test('sign in, create a trip, see correct days, delete it', async ({ page }) => 
 
   // new-trip wizard: road trip, 1–3 Dec 2026
   await page.goto('/trips/new')
+  await page.getByRole('button', { name: /Blank trip/ }).click()
   await page.getByPlaceholder(/Trip name/).fill(name)
   const dates = page.locator('input[type="date"]')
   await dates.nth(0).fill('2026-12-01')

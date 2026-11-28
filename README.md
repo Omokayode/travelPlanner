@@ -14,6 +14,9 @@ lodging, a packing list, a budget with expenses, weather and photos from Immich.
 - **Light and dark** themes (follows the device, or Settings → Appearance).
 - Works on a phone: bottom tab bar, and a **quick add** button during a trip (expense, note, or
   "I'm here" stop from the phone's location).
+- **Plan a new trip in a minute**: describe it in plain words (optional AI through your own
+  Ollama) or pick the cities and nights; the days fill with real sights near each city
+  (Wikipedia + OpenStreetMap), matched to your interests and pace, ready to edit.
 - **Read-only share links** per trip (Share button on the trip page): route, map, days and
   where you stay — no costs, bookings, notes or photos. Can be replaced or turned off.
 
@@ -116,6 +119,17 @@ there, as `docker-compose.yml` does) and are served at
 History: before 1.5.0 a day was one JSON blob; 1.5.0 moved it to legs/stops tables, 1.6.1 dropped
 the JSON, and 1.7.0 turned legs and stops into places (the old `Segment`/`Stop`/`Activity` tables
 are kept, unused, until a later release removes them).
+
+## AI planning (optional)
+
+Set `OLLAMA_URL` (e.g. `http://ollama-host:11434`) and optionally `OLLAMA_MODEL` (default
+`qwen2.5:3b`; Settings → AI picks another installed model). The model only turns a request
+written in plain words into a route outline (start, cities and nights, interests, pace) using
+Ollama's structured output; plain facts in the words ("from Milwaukee", "one-way", interest words)
+override it. Places always come from Wikipedia (`nearcoord:` search per interest + geosearch,
+classified by each article's short description) and OpenStreetMap — never from the model, so they
+exist. Without `OLLAMA_URL`, “Plan by cities” works the same way minus the text box. Ollama has
+no login: keep it on a private network.
 
 ## Login
 

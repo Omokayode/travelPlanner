@@ -1,7 +1,8 @@
 // app/trips/new/page.tsx
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import Planner from '@/components/planner/Planner'
 import { useRouter } from 'next/navigation'
 import { v4 as uuidv4 } from 'uuid'
 import { addDays, daysInclusive, isIsoDate, todayLocal } from '@/lib/domain/dates'
@@ -10,7 +11,7 @@ import { DEFAULT_MPG } from '@/lib/domain/fuel'
 import { useAppSettings } from '@/lib/useAppSettings'
 import {
   Car, Plane, Train, Layers, ArrowRight, ArrowLeft,
-  Check, Loader2, Calendar, DollarSign
+  Check, Loader2, Calendar, DollarSign, Sparkles, Route, PencilLine
 } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import { Trip, TripType, Vehicle, FuelType, Day } from '@/lib/types'
@@ -33,6 +34,16 @@ const FUEL_TYPES: { type: FuelType; label: string }[] = [
 
 export default function NewTripPage() {
   const router = useRouter()
+  // how to start: plan from an outline (AI or by hand), or the blank wizard below
+  const [start, setStart] = useState<'choose' | 'ai' | 'route' | 'blank'>('choose')
+  const appSettings = useAppSettings()
+  const [ai, setAi] = useState<{ reachable: boolean; model: string } | null>(null)
+  useEffect(() => {
+    fetch('/api/ai/status')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((s) => setAi(s ? { reachable: !!s.reachable, model: s.model } : { reachable: false, model: '' }))
+      .catch(() => setAi({ reachable: false, model: '' }))
+  }, [])
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
 
@@ -101,6 +112,43 @@ export default function NewTripPage() {
       toast.error('Could not reach the server')
       setSaving(false)
     }
+  }
+
+  if (start === 'ai' || start === 'route') {
+    return (
+      <div className="min-h-screen bg-page">
+        <Navbar />
+        <Planner ai={!!ai?.reachable} aiModel={ai?.model} homeCity={appSettings?.homeCity} vehicles={appSettings?.savedVehicles || []}
+          withAi={start === 'ai'} onCancel={() => setStart('choose')} />
+      </div>
+    )
+  }
+  if (start === 'choose') {
+    const options = [
+      { key: 'ai' as const, icon: Sparkles, title: 'Describe it', text: 'Say where, when and what you like — the AI drafts the route, then real places fill the days.', disabled: !ai?.reachable, note: ai && !ai.reachable ? 'AI is not available right now' : ai ? `Uses ${ai.model}` : 'Checking the AI…' },
+      { key: 'route' as const, icon: Route, title: 'Plan by cities', text: 'Pick the cities and nights; the days fill with sights and food near each one.' },
+      { key: 'blank' as const, icon: PencilLine, title: 'Blank trip', text: 'Just the dates — add places day by day yourself.' },
+    ]
+    return (
+      <div className="min-h-screen bg-page">
+        <Navbar />
+        <div className="max-w-3xl mx-auto px-4 py-10">
+          <h1 className="text-2xl font-bold text-ink mb-1">New trip</h1>
+          <p className="text-ink-3 text-sm mb-6">How do you want to start?</p>
+          <div className="grid sm:grid-cols-3 gap-3">
+            {options.map((o) => (
+              <button key={o.key} type="button" disabled={o.disabled} onClick={() => setStart(o.key)}
+                className="tp-card text-left hover:border-emerald-500/40 disabled:opacity-50 disabled:hover:border-line transition-colors flex flex-col gap-2">
+                <o.icon className="w-6 h-6 text-accent" />
+                <span className="font-semibold text-ink">{o.title}</span>
+                <span className="text-sm text-ink-2 flex-1">{o.text}</span>
+                {o.note && <span className="text-xs text-ink-3">{o.note}</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
