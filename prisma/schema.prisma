@@ -70,7 +70,45 @@ model AppSettings {
   homeCity        String?
   /// Ollama model for planning (Settings → AI); null = OLLAMA_MODEL / default
   aiModel         String?
+  /// Google Maps Platform: server key (Routes, Places, tile sessions) — never sent to the browser
+  googleServerKey String?
+  /// Google browser key (referrer-restricted; used in map tile URLs)
+  googleMapsKey   String?
+  /// default map style id (lib/mapStyles.ts)
+  mapStyle        String?
+  /// toll pass for Google toll prices, e.g. US_IL_I_PASS; null = cash/plate rates
+  tollPass        String?
   updatedAt       DateTime @updatedAt
+}
+
+/// OpenStreetMap points of interest cached per area (Overpass fill or Geofabrik import).
+/// Only OSM (ODbL) data — never Google content.
+model Poi {
+  /// "node/123", "way/456", "relation/789"
+  id        String   @id
+  name      String
+  category  String
+  lat       Float
+  lng       Float
+  /// a few useful OSM tags (cuisine, opening_hours, website, stars, wikidata…)
+  tags      Json?
+  areaKey   String
+  fetchedAt DateTime @default(now())
+
+  @@index([areaKey])
+  @@index([lat, lng])
+}
+
+/// An area whose POIs are in Poi (fresh for 30 days when filled from Overpass).
+model PoiArea {
+  key       String   @id
+  south     Float
+  west      Float
+  north     Float
+  east      Float
+  source    String
+  count     Int      @default(0)
+  fetchedAt DateTime @default(now())
 }
 
 model Day {
@@ -131,6 +169,8 @@ model Place {
   fuelCost         Decimal?      @db.Decimal(12, 2)
   fuelGallons      Float?
   tollCost         Decimal?      @db.Decimal(12, 2)
+  /// "google" (Routes API) or "estimate" (per-mile guess)
+  tollSource       String?
   travelCost       Decimal?      @db.Decimal(12, 2)
   carrier          String?
   flightNumber     String?

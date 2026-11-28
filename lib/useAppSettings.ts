@@ -8,6 +8,12 @@ export interface PublicSettings extends GasPrices {
   savedVehicles?: Vehicle[] | null
   immichConfigured?: boolean
   homeCity?: string | null
+  /** Google map tiles can be shown (both keys saved) */
+  googleMapsReady?: boolean
+  googleServerKeySet?: boolean
+  googleMapsKeySet?: boolean
+  mapStyle?: string | null
+  tollPass?: string | null
 }
 
 let cached: Promise<PublicSettings | null> | null = null

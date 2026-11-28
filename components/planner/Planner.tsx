@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { format, parseISO } from 'date-fns'
 import { ArrowLeft, ArrowRight, Info, Loader2, Sparkles, X } from 'lucide-react'
 import RouteEditor from './RouteEditor'
+import HotelList, { type HotelOption } from '@/components/HotelList'
 import type { Place, Vehicle } from '@/lib/types'
 import { PLACE_ICONS } from '@/lib/types'
 import type { TripOutline } from '@/lib/domain/plan'
@@ -26,6 +27,7 @@ interface Draft {
   startDate: string
   endDate: string
   days: DraftDay[]
+  stays?: { city: string; state?: string; checkIn: string; checkOut: string; hotels: HotelOption[] }[]
   notes: string[]
 }
 
@@ -68,6 +70,8 @@ export default function Planner({ ai, aiModel, homeCity, vehicles, withAi, onCan
   const [vehicleIndex, setVehicleIndex] = useState(vehicles.length ? 0 : -1)
   const [progress, setProgress] = useState('')
   const [draft, setDraft] = useState<Draft | null>(null)
+  /** chosen hotel per stay (index into its list), -1 = decide later */
+  const [hotelPick, setHotelPick] = useState<number[]>([])
   const [creating, setCreating] = useState(false)
 
   const understand = async () => {
@@ -113,6 +117,7 @@ export default function Planner({ ai, aiModel, homeCity, vehicles, withAi, onCan
           if (msg.error) throw new Error(msg.error)
           if (msg.draft) {
             setDraft(msg.draft)
+            setHotelPick((msg.draft.stays || []).map(() => -1))
             setStep('preview')
           }
         }
@@ -147,6 +152,18 @@ export default function Planner({ ai, aiModel, homeCity, vehicles, withAi, onCan
         type: draft.type,
         vehicle,
         days: draft.days.map((d) => ({ id: uuidv4(), date: d.date, dayNumber: d.dayNumber, title: d.title, visited: false, places: d.places })),
+        lodgings: (draft.stays || []).flatMap((st, i) => {
+          const h = st.hotels[hotelPick[i] ?? -1]
+          return h
+            ? [{
+                id: uuidv4(),
+                name: h.name,
+                location: { id: '', name: h.name, address: h.address, city: st.city, state: st.state, coords: h.coords },
+                checkIn: st.checkIn,
+                checkOut: st.checkOut,
+              }]
+            : []
+        }),
       })
       router.push(`/trips/${id}`)
     } catch (err) {
@@ -255,6 +272,22 @@ export default function Planner({ ai, aiModel, homeCity, vehicles, withAi, onCan
               </li>
             ))}
           </ol>
+          {(draft.stays || []).some((st) => st.hotels.length) && (
+            <section className="space-y-3">
+              <h2 className="text-lg font-semibold text-ink">Where to stay</h2>
+              {(draft.stays || []).map((st, i) =>
+                st.hotels.length ? (
+                  <div key={`${st.city}-${st.checkIn}`} className="tp-card space-y-2">
+                    <div className="text-sm font-medium text-ink">
+                      {st.city} · {format(parseISO(st.checkIn), 'MMM d')} – {format(parseISO(st.checkOut), 'MMM d')}
+                    </div>
+                    <HotelList hotels={st.hotels} name={`stay-${i}`} selected={hotelPick[i] ?? -1}
+                      onSelect={(n) => setHotelPick((p) => p.map((x, j) => (j === i ? n : x)))} />
+                  </div>
+                ) : null,
+              )}
+            </section>
+          )}
           <div className="flex justify-between gap-3">
             <button type="button" onClick={() => setStep('route')} className="tp-btn-ghost">
               <ArrowLeft className="w-4 h-4" /> Change the route

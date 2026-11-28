@@ -31,4 +31,10 @@ describe('fuel', () => {
     expect(noCar.fuelGallons).toBe(280 / DEFAULT_MPG)
     expect(noCar.cost).toBe(noCar.fuelCost + noCar.tollCost)
   })
+
+  it('uses a known toll price instead of the estimate (0 means no tolls)', () => {
+    expect(driveCosts(300, { fuelEfficiency: 30, fuelType: 'regular' }, 3, 6.45)).toEqual({ fuelGallons: 10, fuelCost: 30, tollCost: 6.45, cost: 36.45 })
+    expect(driveCosts(300, { fuelEfficiency: 30, fuelType: 'regular' }, 3, 0).tollCost).toBe(0)
+    expect(driveCosts(300, { fuelEfficiency: 30, fuelType: 'regular' }, 3, null).tollCost).toBe(12)
+  })
 })

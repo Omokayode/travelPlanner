@@ -63,6 +63,8 @@ export interface Travel {
   fuelCost?: number
   fuelGallons?: number
   tollCost?: number
+  /** where tollCost came from: Google's Routes API, or the per-mile estimate */
+  tollSource?: 'google' | 'estimate'
   /** fuel + tolls for a drive; the ticket for a flight/train… */
   cost?: number
   carrier?: string
@@ -177,6 +179,7 @@ export interface OSRMRoute {
 }
 
 export interface OverpassElement {
+  type?: 'node' | 'way' | 'relation'
   id: number
   lat: number
   lon: number

@@ -4,13 +4,18 @@
 // without typed numbers) and the hop changed since it was last worked out (travelKey), it is
 // routed again: drives via OSRM (straight line × 1.25 at 50 mph if OSRM is down), walks at
 // 3 mph, flights/trains/buses/ferries as the crow flies at a typical speed. Drives get fuel and
-// toll estimates from the trip's vehicle and the saved gas prices. Typed-in travel (auto:false,
-// e.g. a looked-up flight) is kept as it is.
+// toll prices from the trip's vehicle and the saved gas prices (tolls from Google's Routes API
+// when a server key is set, else a per-mile estimate). Typed-in travel (auto:false, e.g. a
+// looked-up flight) is kept as it is.
 import type { Coordinates, TransportMode, Travel, Vehicle } from '@/lib/types'
 import type { PlaceInput } from '@/lib/schemas'
 import { drivingRoute } from '@/lib/osm'
 import { haversineMiles } from '@/lib/domain/geo'
 import { driveCosts, fuelPrice, type GasPrices } from '@/lib/domain/fuel'
+import { googleKeys, routeTolls, type GoogleKeys } from '@/lib/server/google'
+
+/** drives shorter than this skip the toll lookup (city hops rarely have tolls) */
+const TOLL_LOOKUP_MILES = 10
 
 /** "lat,lng>lat,lng" with 5 decimals — the 1.7.0 migration builds the same string. */
 export const hopKey = (a: Coordinates, b: Coordinates) =>
@@ -34,6 +39,8 @@ export interface TravelContext {
   gas?: GasPrices | null
   /** hop key and mode currently stored per place id (from the database) */
   stored: Map<string, { key: string | null; mode: TransportMode | null }>
+  /** Google keys (looked up once per save when not given) */
+  google?: GoogleKeys | null
 }
 
 export interface PlannedPlace extends PlaceInput {
@@ -58,10 +65,10 @@ async function route(mode: TransportMode, a: Coordinates, b: Coordinates): Promi
 }
 
 /** Fuel and toll estimate for a drive — only when it has none yet (past trips keep their prices). */
-function withDriveCosts(t: Travel, ctx: TravelContext): Travel {
+function withDriveCosts(t: Travel, ctx: TravelContext, knownToll?: number | null): Travel {
   if (t.mode !== 'drive' || !t.distance || t.fuelCost != null) return t
-  const c = driveCosts(t.distance, ctx.vehicle, fuelPrice(ctx.vehicle?.fuelType, ctx.gas))
-  return { ...t, fuelCost: c.fuelCost, fuelGallons: c.fuelGallons, tollCost: c.tollCost, cost: c.cost }
+  const c = driveCosts(t.distance, ctx.vehicle, fuelPrice(ctx.vehicle?.fuelType, ctx.gas), knownToll)
+  return { ...t, fuelCost: c.fuelCost, fuelGallons: c.fuelGallons, tollCost: c.tollCost, tollSource: knownToll != null ? 'google' : 'estimate', cost: c.cost }
 }
 
 /** Run fn over items, at most `limit` at a time, keeping order. */
@@ -80,6 +87,7 @@ async function pool<T, R>(items: T[], limit: number, fn: (x: T, i: number) => Pr
 
 /** Fill in travel for a day's places (in order). Network calls happen here, outside any transaction. */
 export async function planTravel(places: PlaceInput[], ctx: TravelContext): Promise<PlannedPlace[]> {
+  const google = ctx.google !== undefined ? ctx.google : await googleKeys().catch(() => null)
   return pool(places, 4, async (p, i): Promise<PlannedPlace> => {
     if (i === 0) return { ...p, travel: undefined, travelKey: null }
     const prev = places[i - 1].location.coords
@@ -104,8 +112,11 @@ export async function planTravel(places: PlaceInput[], ctx: TravelContext): Prom
       fuelCost: undefined,
       fuelGallons: undefined,
       tollCost: undefined,
+      tollSource: undefined,
       cost: given.mode === 'drive' || given.mode === 'walk' ? undefined : given.cost,
     }
-    return { ...p, travel: withDriveCosts(t, ctx), travelKey: key }
+    const toll =
+      t.mode === 'drive' && (t.distance ?? 0) >= TOLL_LOOKUP_MILES && google?.serverKey ? await routeTolls(prev, p.location.coords, google) : null
+    return { ...p, travel: withDriveCosts(t, ctx, toll), travelKey: key }
   })
 }

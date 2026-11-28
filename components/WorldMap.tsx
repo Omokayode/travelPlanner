@@ -2,7 +2,8 @@
 'use client'
 
 import { useEffect, useMemo } from 'react'
-import { MapContainer, Polyline, Popup, TileLayer, ZoomControl, useMap } from 'react-leaflet'
+import { MapContainer, Polyline, Popup, ZoomControl, useMap } from 'react-leaflet'
+import MapTiles from '@/components/map/MapTiles'
 import L from 'leaflet'
 import 'leaflet.markercluster'
 import 'leaflet.markercluster/dist/MarkerCluster.css'
@@ -128,11 +129,7 @@ export default function WorldMap({ trips, places, layers }: { trips: MapTrip[]; 
 
   return (
     <MapContainer center={[39.5, -95]} zoom={4} zoomControl={false} worldCopyJump style={{ height: '100%', width: '100%', borderRadius: 0 }}>
-      <TileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        maxZoom={19}
-      />
+      <MapTiles />
       <ZoomControl position="bottomright" />
       <FitAll bounds={bounds} />
       {trips.flatMap((t) =>

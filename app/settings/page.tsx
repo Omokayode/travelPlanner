@@ -5,6 +5,7 @@ import { Settings, Car, Fuel, Camera, Plus, Trash2, Check, Loader2, Palette, Log
 import Navbar, { signOut } from '@/components/Navbar'
 import ThemeSwitch from '@/components/ui/ThemeSwitch'
 import AiSettings from '@/components/settings/AiSettings'
+import MapsSettings, { type MapsPatch, type MapsSettingsValue } from '@/components/settings/MapsSettings'
 import { Vehicle, FuelType } from '@/lib/types'
 import { DEFAULT_FUEL_PRICES, DEFAULT_MPG } from '@/lib/domain/fuel'
 import { invalidateAppSettings } from '@/lib/useAppSettings'
@@ -24,6 +25,7 @@ interface AppSettings {
   homeCity?: string | null
   aiModel?: string | null
 }
+type AllSettings = AppSettings & MapsSettingsValue
 
 const FUEL_LABELS: Record<FuelType, string> = {
   regular: 'Regular (87)',
@@ -35,7 +37,7 @@ const FUEL_LABELS: Record<FuelType, string> = {
 const DEFAULT_GAS = DEFAULT_FUEL_PRICES
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState<AppSettings>({})
+  const [settings, setSettings] = useState<AllSettings>({})
   const [newKey, setNewKey] = useState('')
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null)
@@ -57,8 +59,9 @@ export default function SettingsPage() {
       })
   }, [])
 
-  const save = async (patch: Partial<AppSettings> & { immichApiKey?: string; clearImmichApiKey?: boolean }) => {
-    setSettings(s => ({ ...s, ...patch }))
+  const save = async (patch: Partial<AppSettings> & MapsPatch & { immichApiKey?: string; clearImmichApiKey?: boolean }) => {
+    const { googleServerKey: _a, googleMapsKey: _b, ...shown } = patch
+    setSettings(s => ({ ...s, ...shown }))
     setSaving(true)
     setSaved(false)
     try {
@@ -162,6 +165,8 @@ export default function SettingsPage() {
         </section>
 
         <AiSettings onSave={(patch: { aiModel: string | null }) => save(patch)} />
+
+        <MapsSettings value={settings} onSave={(patch) => save(patch)} />
 
         {/* Appearance */}
         <section className="tp-card p-5 space-y-3">

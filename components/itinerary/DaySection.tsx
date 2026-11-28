@@ -5,7 +5,8 @@
 import { forwardRef, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { format, parseISO } from 'date-fns'
-import { BedDouble, Camera, CheckCircle2, ChevronDown, Circle, Loader2, StickyNote, CornerDownRight } from 'lucide-react'
+import { BedDouble, Camera, CheckCircle2, ChevronDown, Circle, Loader2, StickyNote, CornerDownRight, Navigation } from 'lucide-react'
+import { appleDirections, googleDirections } from '@/lib/domain/mapLinks'
 import clsx from 'clsx'
 import type { Day, Lodging, Place, Travel } from '@/lib/types'
 import { dayTotals } from '@/lib/domain/trip'
@@ -43,6 +44,28 @@ interface Props {
   setDrag: (d: DragState | null) => void
   /** drop the dragged place at index in this day */
   onDropAt: (dayNumber: number, index: number) => void
+}
+
+/** Open the whole day in Google Maps (stops as waypoints) or Apple Maps (to the last place). */
+function DayNavLinks({ places }: { places: Place[] }) {
+  const stops = places.map((p) => ({ name: p.name, coords: p.location.coords }))
+  const allWalk = places.every((p, i) => i === 0 || p.travel?.mode === 'walk')
+  const mode = allWalk ? 'walk' : 'drive'
+  const g = googleDirections(stops, mode)
+  const last = stops[stops.length - 1]
+  return (
+    <span className="inline-flex items-center gap-2">
+      <Navigation className="w-3 h-3" aria-hidden />
+      <a href={g.url} target="_blank" rel="noopener noreferrer" className="hover:text-accent underline-offset-2 hover:underline"
+        title={g.included < stops.length ? `Google Maps takes the first ${g.included} of ${stops.length} places` : "All of this day's places, in order"}>
+        Google Maps{g.included < stops.length ? ` (first ${g.included})` : ''}
+      </a>
+      <a href={appleDirections(stops[0], last, mode)} target="_blank" rel="noopener noreferrer" className="hover:text-accent underline-offset-2 hover:underline"
+        title={`Apple Maps: from ${stops[0].name} to ${last.name} (Apple's link can't include the stops in between)`}>
+        Apple Maps
+      </a>
+    </span>
+  )
 }
 
 function DayWeather({ date, place }: { date: string; place?: Place }) {
@@ -148,6 +171,7 @@ const DaySection = forwardRef<HTMLElement, Props>(function DaySection(
             {totals.miles > 0 && <span>{[formatMinutes(totals.driveMinutes), formatMiles(totals.miles)].filter(Boolean).join(' · ')}</span>}
             {totals.cost > 0 && <span className="text-ok">${totals.cost.toFixed(2)}</span>}
             {showWeather && <DayWeather date={day.date} place={places[0]} />}
+            {places.length >= 2 && <DayNavLinks places={places} />}
             {saving && (
               <span className="inline-flex items-center gap-1">
                 <Loader2 className="w-3 h-3 animate-spin" /> Saving…

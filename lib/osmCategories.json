@@ -1,0 +1,20 @@
+{
+  "_comment": "OSM tag -> place category, checked in order (first match wins). Shared by lib/domain/osmCategory.ts and scripts/poi-import.py. 'group' says which Overpass query fills it.",
+  "rules": [
+    { "key": "boundary", "values": ["national_park"], "category": "national_park", "group": "sights" },
+    { "key": "leisure", "values": ["nature_reserve"], "category": "park", "group": "sights" },
+    { "key": "tourism", "values": ["museum", "gallery"], "category": "museum", "group": "sights" },
+    { "key": "tourism", "values": ["viewpoint"], "category": "viewpoint", "group": "sights" },
+    { "key": "tourism", "values": ["attraction", "zoo", "aquarium", "theme_park"], "category": "attraction", "group": "sights" },
+    { "key": "historic", "values": ["monument", "memorial", "castle", "fort", "ruins", "archaeological_site", "building", "church", "lighthouse", "battlefield", "manor", "ship"], "category": "historical", "group": "sights" },
+    { "key": "leisure", "values": ["park", "garden"], "category": "park", "group": "sights" },
+    { "key": "natural", "values": ["peak", "waterfall", "cave_entrance", "arch", "beach"], "category": "scenic", "group": "sights" },
+    { "key": "tourism", "values": ["hotel", "motel", "guest_house", "hostel"], "category": "lodging", "group": "food" },
+    { "key": "amenity", "values": ["cafe"], "category": "coffee", "group": "food" },
+    { "key": "amenity", "values": ["restaurant", "fast_food", "food_court", "ice_cream"], "category": "food", "group": "food" },
+    { "key": "amenity", "values": ["bar", "pub", "nightclub", "biergarten"], "category": "nightlife", "group": "food" },
+    { "key": "amenity", "values": ["marketplace"], "category": "shopping", "group": "food" },
+    { "key": "shop", "values": ["mall", "department_store", "gift", "books", "art", "antiques"], "category": "shopping", "group": "food" }
+  ],
+  "keepTags": ["cuisine", "opening_hours", "website", "phone", "stars", "wikidata", "wikipedia", "description", "addr:street", "addr:housenumber", "addr:city", "brand"]
+}

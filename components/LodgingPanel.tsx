@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { Plus, Trash2, Edit2, X, Check, Hotel, MapPin, Mail, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
 import { GeoLocation, Lodging, Trip } from '@/lib/types'
 import LocationSearch from './LocationSearch'
+import FindHotels from './FindHotels'
 import { toast } from '@/lib/client'
 
 interface Props {
@@ -33,6 +34,7 @@ export default function LodgingPanel({ trip, onUpdate }: Props) {
   const [form, setForm] = useState(emptyForm())
   const [saving, setSaving] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [finding, setFinding] = useState(false)
 
   const saveLodging = async () => {
     const location = form.location
@@ -87,14 +89,21 @@ export default function LodgingPanel({ trip, onUpdate }: Props) {
       {/* Add button */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-ink/50 uppercase tracking-wide">Bases & Lodging</h3>
-        <button onClick={() => { setShowForm(true); setEditingId(null); setForm(emptyForm()) }}
-          className="tp-btn text-xs py-1.5">
-          <Plus className="w-3.5 h-3.5" /> Add
-        </button>
+        <div className="flex gap-2">
+          <button type="button" onClick={() => { setFinding(true); setShowForm(false) }} className="tp-btn-ghost text-xs py-1.5">
+            <Hotel className="w-3.5 h-3.5" /> Find hotels
+          </button>
+          <button onClick={() => { setShowForm(true); setFinding(false); setEditingId(null); setForm(emptyForm()) }}
+            className="tp-btn text-xs py-1.5">
+            <Plus className="w-3.5 h-3.5" /> Add
+          </button>
+        </div>
       </div>
 
+      {finding && <FindHotels trip={trip} onClose={() => setFinding(false)} onAdd={(l) => save([...lodgings, l])} />}
+
       {/* Empty state */}
-      {lodgings.length === 0 && !showForm && (
+      {lodgings.length === 0 && !showForm && !finding && (
         <div className="tp-card text-center py-8 border-dashed">
           <Hotel className="w-8 h-8 text-ink/10 mx-auto mb-2" />
           <div className="text-sm text-ink/40">No lodging added yet</div>

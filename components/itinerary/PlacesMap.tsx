@@ -4,7 +4,8 @@
 'use client'
 
 import { useEffect, useMemo } from 'react'
-import { MapContainer, Marker, Polyline, TileLayer, Tooltip, ZoomControl, useMap } from 'react-leaflet'
+import { MapContainer, Marker, Polyline, Tooltip, ZoomControl, useMap } from 'react-leaflet'
+import MapTiles from '@/components/map/MapTiles'
 import L from 'leaflet'
 import type { Lodging, Place } from '@/lib/types'
 
@@ -81,11 +82,7 @@ export default function PlacesMap({ days, lodgings = [], focusDay = null, active
   return (
     <MapContainer center={start} zoom={days.some((d) => d.places.length) ? 6 : 4} zoomControl={false} className={className}
       style={{ height: '100%', width: '100%' }}>
-      <TileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        maxZoom={19}
-      />
+      <MapTiles />
       <ZoomControl position="bottomright" />
       <Fit days={days} focusDay={focusDay} />
       <Resize />

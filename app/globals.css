@@ -112,6 +112,8 @@ body {
   font-family: inherit;
 }
 .leaflet-tile-pane { filter: var(--map-tiles); }
+/* dark, satellite and Google maps are never dimmed (components/map/MapTiles.tsx) */
+.tp-tiles-nodim .leaflet-tile-pane { filter: none; }
 .leaflet-popup-content-wrapper {
   background: rgb(var(--card)) !important;
   color: rgb(var(--ink)) !important;
